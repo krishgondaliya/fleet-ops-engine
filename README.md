@@ -83,3 +83,23 @@ Discovery notes and data dictionary: `docs/discovery/`.
 - **Comparison:** 30 seeds; each seed's demand is drawn once and replayed for both policies. Results are paired differences with a 95% bootstrap interval.
 - **Tables:** `sim_runs`, `sim_summary`, `sim_hourly`, `sim_station`, `sim_moves`, `sim_meta` (every row carries `label = 'SIMULATED'`).
 - **Limits:** riders do not carry bikes between stations in the model (arrivals are independent draws), rates are completed trips rather than demand, and the truck parameters are assumptions. Results compare policies under identical simulated scenarios; they are not operational evidence.
+
+## Step 4: investigation agent
+
+Put these in `.env` (git-ignored). The app loads them at runtime:
+
+```
+ANTHROPIC_API_KEY=...
+AGENT_MODEL=claude-sonnet-5-5     # optional; this is the default
+```
+
+```bash
+.venv/Scripts/python -m fleetdata.agent "What was the LightGBM test MAE for departures?"
+.venv/Scripts/python -m fleetdata.agent_eval --mode replay   # offline: scripted tool calls, checks tools + grader
+.venv/Scripts/python -m fleetdata.agent_eval --mode live     # calls the API (costs money): measures the agent
+```
+
+- **One tool-use loop** over five read-only tools: `station_lookup`, `hourly_flow`, `forecast_vs_actual`, `model_metrics` and `simulation_results`. Arguments are validated, SQL is fixed and parameterized, and results are capped at 200 rows. The model cannot run its own SQL.
+- **Limits per question:** 8 tool calls and an 80,000-token cap.
+- **Numbers:** every number in an answer is checked against the tool results, and unmatched numbers are flagged as unverified. The list of tool calls is appended to every answer.
+- **Eval:** 10 questions whose answers are computed directly with SQL. Results are written to `reports/agent_eval.json`.

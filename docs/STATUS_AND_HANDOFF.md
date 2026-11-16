@@ -15,6 +15,35 @@
 | External resources currently running | **None** |
 
 ## Current outcome
+**Step 4, the investigation agent, is built and tested offline. It has NOT been measured live.**
+- **Live API calls fail:** HTTP 400 `invalid_request_error`, "Your credit balance is too low to access the Anthropic API" (request `req_011Ch5wjYDkTAkE6RdRPTiqL`, 2026-11-15). The key loads from `.env` (contents not read or printed). **The live agent score is unmeasured: 0 of 10 questions scored.**
+- Code: `fleetdata/agent_tools.py` (5 read-only tools), `fleetdata/agent.py` (one manual tool-use loop), `fleetdata/agent_eval.py` (10 questions + grader). Tests: `tests/test_agent.py`.
+- **Tools:** `station_lookup`, `hourly_flow`, `forecast_vs_actual`, `model_metrics`, `simulation_results`.
+  - Every argument is validated: unknown keys are rejected, plus enums, the short_name pattern, ISO dates, at most 31 days, forecasts limited to Oct 2026, and 1–60 character strings.
+  - SQL is fixed and parameterized, the connection is read-only, and results are capped at 200 rows with a `truncated` flag.
+  - Each result carries an observed, predicted or simulated label. The model never writes SQL.
+- **Loop limits:** at most 8 tool calls (after that, `tool_choice: none` forces an answer), an 80,000-token cap per question (input + output), and 4,000 `max_tokens` per response.
+  - The model is `AGENT_MODEL` (default `claude-sonnet-5-5`), at effort `medium`, with server-side refusal fallback (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`) for models that support it.
+- **Grounding:** the system prompt requires every number to come from a tool result, with [#n] citations. Code then checks every number in the answer against the tool results; unmatched numbers are shown as "Unverified numbers".
+  - The tool-call list is appended by code, not by the model.
+  - Unanswerable questions must start with "Not supported by the data:".
+- **Eval (`python -m fleetdata.agent_eval`):** 10 questions. Expected numbers are computed by direct SQL on `trips`, `snapshot`, `forecast_predictions`, `sim_runs` and `sim_summary`, independently of the tool code. One question (Q10) is unanswerable by design.
+  - **SCRIPTED replay: 10/10.** A fixed tool sequence per question, with the answer written from the tool results. This shows that the tools return the right numbers and that the loop, the number check and the grader work. **It is not a measure of the model.**
+  - **LIVE: not scored** (credit error above). Rerun `python -m fleetdata.agent_eval --mode live` after adding credit. Output goes to `reports/agent_eval.json`.
+
+| Q | Question (short) | Expected (direct SQL) |
+|---|---|---|
+| Q1 | bikes, docks at "Grove St PATH" (snapshot) | 14, 26 (observed) |
+| Q2 | departures JC115 on 2026-10-05 | 178 (observed) |
+| Q3 | arrivals HB107 2026-09-01..07 | 685 (observed) |
+| Q4 | peak departure hour JC115 on 2026-10-07 | hour 17, 55 trips (observed) |
+| Q5 | test MAE departures, LightGBM vs 4-week avg | 0.838, 0.867 (predicted vs observed) |
+| Q6 | JC115 2026-10-06 actual vs LightGBM total | 182 vs 159.9 |
+| Q7 | LightGBM WAPE arrivals HB107 (test) | 0.425 |
+| Q8 | mean lost rentals/day no_action vs greedy | 236.0, 209.2 (SIMULATED) |
+| Q9 | paired diff failed returns, 95% CI | −40.0 [−43.8, −36.3] (SIMULATED) |
+| Q10 | real lost rentals JC115 on 2026-10-05 | must say unsupported (no status history) |
+
 **Step 3, a one-day SIMULATOR, runs on real inputs.** Every number in this section is **SIMULATED**.
 - Command: `.venv/Scripts/python.exe -m fleetdata.sim` (about 1 s). Assumptions: `config/sim.json`. Code: `fleetdata/sim.py`. Tests: `tests/test_sim.py`.
 - Start state (observed): 105 installed JC/Hoboken stations, 2,004 docks, 902 bikes from the snapshot fetched 2026-11-16 03:20:48 UTC. Clipping to capacity changed no counts (the 3 `over_capacity` stations are over because of disabled bikes/docks, not available bikes). 3 stale station reports are used as-is.
@@ -54,11 +83,14 @@ Limits of the simulator (stated assumptions, not findings):
 | S1 | Offline data layer (download, build, summary, tests) | **verified done** | Commands and results below |
 | S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done**; final, not to be retuned | Commands and results below |
 | S3 | One-day simulator, two policies, 30 paired seeds | **verified done** | Commands and results below |
+| S4 | Investigation agent: tools, loop, 10-question eval | **built; offline-tested; live score not measured** (API credit) | Commands and results below |
 | ~~M1~~ | Collector live | **cancelled** (scope change) | — |
 
 ## Exact verification evidence
 | Command | Time (UTC) | Observed outcome |
 |---|---|---|
+| `.venv/Scripts/python.exe -m pytest -q` (step 4) | 2026-11-15 | **128 passed in 12.64s** (91 earlier + 37 agent; offline, scripted client) |
+| `.venv/Scripts/python.exe -m fleetdata.agent_eval --mode both` | 2026-11-15 | Replay **10/10**; live **0 scored**: the first call returned HTTP 400 "credit balance is too low", and the remaining 9 were not sent |
 | `.venv/Scripts/python.exe -m pytest -q` (step 3) | 2026-11-15 | **91 passed in 7.34s** (23 earlier + 68 simulator; offline) |
 | Simulator mutation check: (a) treat an empty station as able to rent, (b) truck drops off one extra bike | 2026-11-15 | (a) 41 failed, (b) 20 failed (bounds/counting and conservation tests detect them); restored code: 68 passed |
 | `.venv/Scripts/python.exe -m fleetdata.sim` | 2026-11-15 | Results table above (SIMULATED). Writes `sim_runs`, `sim_summary`, `sim_hourly`, `sim_station`, `sim_moves`, `sim_meta` |
@@ -118,11 +150,12 @@ Observations:
 ## Blockers / approvals
 | Blocker | Class | Exact unblock action |
 |---|---|---|
+| Live agent evaluation | requires-cost-approval | Add Anthropic API credit; then `python -m fleetdata.agent_eval --mode live` (10 questions, a few cents to tens of cents at Sonnet prices; not measured) |
 | Public name | requires-user-decision | Neutral name before any public artifact |
 | Complete arrivals (cross-river) | requires-user-decision | Optionally download NYC months (about 1 GB each) and filter to trips ending in JC/Hoboken |
 
 ## Next ready ticket
-- **Ticket:** step 4, the investigation agent (per `docs/PLAN.md`), then step 5, the app.
+- **Ticket:** step 5, the app (per `docs/PLAN.md`). Open item from step 4: add API credit, then run `python -m fleetdata.agent_eval --mode live`.
 - **Commands for a fresh session:**
   - `.venv/Scripts/python.exe -m pytest -q`
   - `.venv/Scripts/python.exe -m fleetdata.build`

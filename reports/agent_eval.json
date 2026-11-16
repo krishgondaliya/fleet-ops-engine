@@ -1,0 +1,396 @@
+[
+  {
+    "id": "Q1",
+    "question": "How many bikes and how many docks were available at the station named 'Grove St PATH' in the snapshot?",
+    "expected": [
+      14.0,
+      26.0
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Observed in the snapshot [#1]: 14 bikes and 26 docks available at JC115.",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "station_lookup",
+        "args": {
+          "query": "Grove St PATH"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q2",
+    "question": "How many trips started at station JC115 on 2026-10-05 (local date)?",
+    "expected": [
+      178.0
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Observed: 178 completed departures [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "hourly_flow",
+        "args": {
+          "short_name": "JC115",
+          "start_date": "2026-10-05",
+          "end_date": "2026-10-05"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q3",
+    "question": "How many completed trips ended at station HB107 between 2026-09-01 and 2026-09-07 inclusive?",
+    "expected": [
+      685.0
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Observed: 685 arrivals [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "hourly_flow",
+        "args": {
+          "short_name": "HB107",
+          "start_date": "2026-09-01",
+          "end_date": "2026-09-07"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q4",
+    "question": "At station JC115 on 2026-10-07, which local hour had the most departures, and how many were there?",
+    "expected": [
+      17.0,
+      55.0
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Observed: hour 17 had 55 departures [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "hourly_flow",
+        "args": {
+          "short_name": "JC115",
+          "start_date": "2026-10-07",
+          "end_date": "2026-10-07",
+          "granularity": "hour"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q5",
+    "question": "On the October 2026 test month, what was the MAE of the LightGBM forecast for departures, and of the 4-week average baseline?",
+    "expected": [
+      0.8380275720475574,
+      0.8670154889912954
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Predicted-vs-observed, test month [#1]: LightGBM MAE 0.8380, 4-week average MAE 0.8670.",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "model_metrics",
+        "args": {
+          "view": "overall",
+          "target": "departures"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q6",
+    "question": "For station JC115 on 2026-10-06, how many departures actually happened and what total did the LightGBM forecast predict?",
+    "expected": [
+      182.0,
+      159.8648200511408
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Observed 182 departures; LightGBM predicted 159.9 [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "forecast_vs_actual",
+        "args": {
+          "short_name": "JC115",
+          "start_date": "2026-10-06",
+          "end_date": "2026-10-06"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q7",
+    "question": "What was the LightGBM WAPE for arrivals at station HB107 in the October 2026 test month?",
+    "expected": [
+      0.4249715201940042
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Predicted-vs-observed: WAPE 0.425 [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "model_metrics",
+        "args": {
+          "view": "by_station",
+          "short_name": "HB107",
+          "target": "arrivals"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q8",
+    "question": "In the simulation, what were the mean lost rentals per day under no action and under the greedy truck policy?",
+    "expected": [
+      235.96666666666667,
+      209.16666666666666
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Simulated [#1]: no action 236.0, greedy 209.2 lost rentals per day.",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "simulation_results",
+        "args": {
+          "view": "summary"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q9",
+    "question": "In the simulation, what is the paired difference in failed returns (greedy minus no action), with its 95% confidence interval?",
+    "expected": [
+      -39.96666666666667,
+      -43.833333333333336,
+      -36.266666666666666
+    ],
+    "mode": "replay",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "Simulated [#1]: -40.0 failed returns per day, 95% CI -43.8 to -36.3.",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "simulation_results",
+        "args": {
+          "view": "summary"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q10",
+    "question": "How many rentals were actually lost at station JC115 on 2026-10-05 because the station had no bikes?",
+    "expected": "unsupported",
+    "mode": "replay",
+    "correct": true,
+    "detail": "says unsupported",
+    "answer": "Not supported by the data: the data has completed trips only and no station-status history, so lost rentals on a real day cannot be observed [#1].",
+    "tool_calls": [
+      {
+        "n": 1,
+        "name": "hourly_flow",
+        "args": {
+          "short_name": "JC115",
+          "start_date": "2026-10-05",
+          "end_date": "2026-10-05"
+        },
+        "error": null
+      }
+    ],
+    "unverified_numbers": [],
+    "tokens": 2200
+  },
+  {
+    "id": "Q1",
+    "question": "How many bikes and how many docks were available at the station named 'Grove St PATH' in the snapshot?",
+    "expected": [
+      14.0,
+      26.0
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "API call failed: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q2",
+    "question": "How many trips started at station JC115 on 2026-10-05 (local date)?",
+    "expected": [
+      178.0
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q3",
+    "question": "How many completed trips ended at station HB107 between 2026-09-01 and 2026-09-07 inclusive?",
+    "expected": [
+      685.0
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q4",
+    "question": "At station JC115 on 2026-10-07, which local hour had the most departures, and how many were there?",
+    "expected": [
+      17.0,
+      55.0
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q5",
+    "question": "On the October 2026 test month, what was the MAE of the LightGBM forecast for departures, and of the 4-week average baseline?",
+    "expected": [
+      0.8380275720475574,
+      0.8670154889912954
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q6",
+    "question": "For station JC115 on 2026-10-06, how many departures actually happened and what total did the LightGBM forecast predict?",
+    "expected": [
+      182.0,
+      159.8648200511408
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q7",
+    "question": "What was the LightGBM WAPE for arrivals at station HB107 in the October 2026 test month?",
+    "expected": [
+      0.4249715201940042
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q8",
+    "question": "In the simulation, what were the mean lost rentals per day under no action and under the greedy truck policy?",
+    "expected": [
+      235.96666666666667,
+      209.16666666666666
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q9",
+    "question": "In the simulation, what is the paired difference in failed returns (greedy minus no action), with its 95% confidence interval?",
+    "expected": [
+      -39.96666666666667,
+      -43.833333333333336,
+      -36.266666666666666
+    ],
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  },
+  {
+    "id": "Q10",
+    "question": "How many rentals were actually lost at station JC115 on 2026-10-05 because the station had no bikes?",
+    "expected": "unsupported",
+    "mode": "live",
+    "correct": null,
+    "detail": "not run after earlier API failure: BadRequestError: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purcha",
+    "answer": "",
+    "tool_calls": [],
+    "unverified_numbers": [],
+    "tokens": 0
+  }
+]
