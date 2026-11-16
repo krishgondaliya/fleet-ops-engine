@@ -122,7 +122,8 @@ Limits of the simulator (stated assumptions, not findings):
 | S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done**; final, not to be retuned | Commands and results below |
 | S3 | One-day simulator, two policies, 30 paired seeds | **verified done** | Commands and results below |
 | S5 | Streamlit app, 4 views, badges, banner | **done; headless-tested** (not visually inspected in a browser) | Commands and results below |
-| S4 | Investigation agent: tools, loop, 10-question eval | **built; offline-tested; live score not measured** (API credit) | Commands and results below |
+| S4 | Investigation agent: tools, loop, 10-question eval | **verified done**; live score **9/10** on the claude_code backend (api backend still unscored: no API credit) | Commands and results below |
+| S4b | claude_code backend: local MCP server + Claude Code CLI under the subscription | **verified done** | See "claude_code backend" below |
 | ~~M1~~ | Collector live | **cancelled** (scope change) | — |
 
 ## Exact verification evidence
@@ -192,7 +193,7 @@ Observations:
 ## Blockers / approvals
 | Blocker | Class | Exact unblock action |
 |---|---|---|
-| Live agent evaluation | requires-cost-approval | Add Anthropic API credit; then `python -m fleetdata.agent_eval --mode live` (10 questions, a few cents to tens of cents at Sonnet prices; not measured) |
+| Live agent evaluation, **api backend only** | requires-cost-approval | Add Anthropic API credit; then `python -m fleetdata.agent_eval --mode live --backend api`. The claude_code backend is measured (9/10) |
 | Public name | requires-user-decision | Neutral name before any public artifact |
 | Complete arrivals (cross-river) | requires-user-decision | Optionally download NYC months (about 1 GB each) and filter to trips ending in JC/Hoboken |
 
@@ -215,3 +216,44 @@ Observations:
 - Simulation: y-axis title split over two lines so it is not cut off.
 - Agent: API failures show a short plain message (`fleetdata.agent.describe_api_error`, e.g. "The API account has no credit.") with the raw error in a collapsed "Error details" expander.
 - Tests: `.venv/Scripts/python.exe -m pytest -q` -> 140 passed in 21.27s (4 new tests). App also run headless on the real DB via AppTest with no exceptions. Not inspected visually in a browser.
+
+## claude_code backend (2026-11-16)
+A second way to run the agent, needing no API key. The API path (`agent.ask`) is unchanged.
+
+**Files**
+- `fleetdata/agent_mcp.py`: hand-written stdio MCP server, with no new dependency. It handles initialize, ping, tools/list and tools/call. It serves the same five tools through `agent_tools.run_tool`, with the same validation, fixed queries, read-only connection and 200-row cap. It refuses calls after the 8th.
+- `fleetdata/agent_claude_code.py`: builds the CLI command, cleans the environment, parses the stream-json output, and applies the same `check_numbers` and tool-call footer. It also contains `sanitize_stream`, which reduces recordings to the fields the parser reads.
+- `fleetdata/agent.py`: adds `AGENT_BACKEND` (`api` | `claude_code`, default `claude_code`), `answer()` to dispatch to the selected backend, `AgentResult.backend`, and a `--backend` CLI flag.
+- `fleetdata/agent_eval.py`: adds `--backend` and `--record-dir`; rows record the backend, model and stop reason.
+- `app.py`: the agent tab shows the configured backend and which backend answered each question. Claude Code failures get a short message with the raw error in a collapsed expander.
+- Tests: `tests/test_agent_claude_code.py` (18 test functions) and 2 new app tests. Recorded fixtures are in `tests/fixtures/claude_code/Q2,Q6,Q10.jsonl`: real stream-json from the live eval, sanitized.
+
+**CLI flags.** Checked against `claude --help` for v2.1.325 and the CLI reference at code.claude.com/docs/en/cli-reference. `--max-turns` is documented there but not listed in `--help`.
+
+`-p --output-format stream-json --verbose --model <AGENT_MODEL> --effort medium --mcp-config <tmp>/mcp.json --strict-mcp-config --tools "" --disallowedTools <built-ins> --allowedTools mcp__fleet__<5 tools> --permission-mode dontAsk --max-turns 9 --system-prompt-file <tmp>/system.txt --setting-sources "" --no-session-persistence`
+
+How each run is isolated:
+- The question is passed on stdin, and the command runs in an empty temporary directory.
+- On Windows the npm `.cmd` shim is bypassed for the native `claude.exe`. `CLAUDE_CLI` overrides the path.
+- The child environment has `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and the parent session's `CLAUDECODE`/`CLAUDE_CODE_*` linkage variables removed.
+- The run is refused if the init event reports an `apiKeySource` other than `none`, or any tool besides the five plus `EndConversation`. The CLI reference says `EndConversation` cannot be removed while MCP tools remain; it did not appear in practice.
+
+**Live eval, claude_code backend.** Command: `.venv/Scripts/python.exe -m fleetdata.agent_eval --mode both --backend claude_code --record-dir <scratchpad>`, run on 2026-11-16 against the real `data/fleet.duckdb`.
+
+- Replay: 10/10. This checks the tools and the grader, not the model.
+- **Live: 9/10 correct.** Model claude-sonnet-5-5, plan allowance, 65,190 tokens in total (at most 7,502 per question). Nine questions used one tool call each; Q10 used none.
+- All 10 runs reported `apiKeySource: "none"` although the parent process had the `.env` key loaded. Only the five fleet tools were available.
+- **Failure, Q4** (busiest hour at JC115 on 2026-10-07; expected hour 17 with 55 departures). The answer was "the 17:00 local hour … 55 observed completed departures [#1]". That is correct, but the grader strips `HH:MM` times before reading numbers, so it did not find 17. This is a grader limitation, not an agent error. The score is reported as measured and the grader was not changed after seeing the results.
+- **Unverified-number flags** (false positives of the number check): Q5 flagged `2026` (from "October 2026") and `95` (from "95% CI"); Q7 flagged `2026`. Every reported value in those answers matched a tool result.
+- Results are in `reports/agent_eval.json`, which replaces the earlier file whose live rows were all unscored.
+
+**Verification**
+- `.venv/Scripts/python.exe -m pytest -q` → **163 passed in 20.64s**, offline.
+- conftest points `CLAUDE_CLI` at a missing path, so no test can start the real CLI. The MCP server is tested in-process and as a real stdio subprocess.
+- The only live use was the eval above plus one probe question (Q2, answered 178, correct).
+
+**Limits**
+- Local only. It needs the Claude Code CLI installed and logged in on this machine.
+- Each question uses the subscription's plan allowance.
+- The 80,000-token cap is reported, not enforced mid-run.
+- A public or shared deployment must use the `api` backend.

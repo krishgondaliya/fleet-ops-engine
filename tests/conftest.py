@@ -36,6 +36,9 @@ def _no_network(monkeypatch):
 
     monkeypatch.setattr(socket.socket, "connect", connect)
     monkeypatch.setattr(socket, "create_connection", create_connection)
+    # The claude_code backend runs the Claude Code CLI in a subprocess, which the socket guard cannot see. Point it
+    # at a path that does not exist so an unpatched call fails fast instead of reaching the network.
+    monkeypatch.setenv("CLAUDE_CLI", str(pathlib.Path(__file__).parent / "no-such-claude-cli.exe"))
 
 
 @pytest.fixture(scope="session")

@@ -154,10 +154,11 @@ def test_refusal_is_reported_not_answered(db):
 def test_settings_report_key_presence_only(tmp_path, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("AGENT_MODEL", raising=False)
+    monkeypatch.delenv("AGENT_BACKEND", raising=False)
     env = tmp_path / ".env"
     env.write_text("ANTHROPIC_API_KEY=sk-test-not-real\n", encoding="utf-8")
     s = A.load_settings(env)
-    assert s == {"model": "claude-sonnet-5-5", "has_key": True}
+    assert s == {"model": "claude-sonnet-5-5", "backend": "claude_code", "has_key": True}
 
 
 # ---------------- grader ----------------

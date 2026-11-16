@@ -1,4 +1,6 @@
 """Step 4: investigation agent. One tool-use loop on the Anthropic API over read-only tools (fleetdata.agent_tools).
+AGENT_BACKEND selects who runs the loop: "api" (this module, ANTHROPIC_API_KEY) or "claude_code" (default; the Claude
+Code CLI under the subscription login, see fleetdata.agent_claude_code). Both use the same tools and number check.
 
 Configuration (read at runtime from .env via python-dotenv, never printed):
   ANTHROPIC_API_KEY   required for live calls
@@ -66,6 +68,7 @@ class AgentResult:
     input_tokens: int = 0
     output_tokens: int = 0
     unverified_numbers: list[str] = dataclasses.field(default_factory=list)
+    backend: str = "api"            # api | claude_code: which backend produced the answer
 
     def calls_footer(self) -> str:
         if not self.tool_calls:
@@ -81,15 +84,39 @@ class AgentResult:
 
 
 # ---------------- configuration ----------------
+BACKENDS = ("api", "claude_code")
+DEFAULT_BACKEND = "claude_code"
+
+
 def load_settings(env_file: str | os.PathLike = ".env") -> dict:
-    """Load .env into the process environment at runtime. Returns the model name and whether a key is present
-    (never the key itself)."""
+    """Load .env into the process environment at runtime. Returns the model name, the backend (AGENT_BACKEND) and
+    whether a key is present (never the key itself)."""
     try:
         from dotenv import load_dotenv
         load_dotenv(env_file, override=False)
     except ImportError:
         pass
-    return {"model": os.environ.get("AGENT_MODEL") or DEFAULT_MODEL, "has_key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+    backend = (os.environ.get("AGENT_BACKEND") or DEFAULT_BACKEND).strip().lower()
+    if backend not in BACKENDS:
+        raise ValueError(f"AGENT_BACKEND must be one of {BACKENDS}, got {backend!r}")
+    return {"model": os.environ.get("AGENT_MODEL") or DEFAULT_MODEL, "backend": backend,
+            "has_key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+
+
+def answer(question: str, settings: dict, db_path: pathlib.Path = pathlib.Path("data/fleet.duckdb")) -> AgentResult:
+    """Answer with the configured backend. api: the tool-use loop below (needs ANTHROPIC_API_KEY). claude_code: the
+    Claude Code CLI under the subscription login (fleetdata.agent_claude_code). Raises anthropic.APIError or
+    agent_claude_code.ClaudeCodeError on failure."""
+    if settings["backend"] == "claude_code":
+        from fleetdata import agent_claude_code
+        return agent_claude_code.ask(question, db_path, settings["model"])
+    if not settings["has_key"]:
+        raise MissingKeyError("ANTHROPIC_API_KEY is not set in .env or the environment (needed by AGENT_BACKEND=api)")
+    return ask(question, make_client(), db_path, settings["model"])
+
+
+class MissingKeyError(RuntimeError):
+    pass
 
 
 def make_client():
@@ -242,17 +269,23 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("question")
     ap.add_argument("--db", default="data/fleet.duckdb", type=pathlib.Path)
+    ap.add_argument("--backend", choices=BACKENDS, help="override AGENT_BACKEND")
     a = ap.parse_args()
     s = load_settings()
-    if not s["has_key"]:
-        raise SystemExit("ANTHROPIC_API_KEY is not set in .env or the environment")
+    if a.backend:
+        s["backend"] = a.backend
     import anthropic
+    from fleetdata.agent_claude_code import ClaudeCodeError
     try:
-        r = ask(a.question, make_client(), a.db, s["model"])
+        r = answer(a.question, s, a.db)
+    except MissingKeyError as e:
+        raise SystemExit(str(e))
     except anthropic.APIError as e:
         raise SystemExit(f"API call failed ({type(e).__name__}): {getattr(e, 'message', e)}")
+    except ClaudeCodeError as e:
+        raise SystemExit(f"Claude Code run failed: {e}")
     print(r.full_answer())
-    print(f"\n[model {r.model}; stop {r.stop}; tokens in {r.input_tokens:,} out {r.output_tokens:,}]")
+    print(f"\n[backend {r.backend}; model {r.model}; stop {r.stop}; tokens in {r.input_tokens:,} out {r.output_tokens:,}]")
 
 
 if __name__ == "__main__":

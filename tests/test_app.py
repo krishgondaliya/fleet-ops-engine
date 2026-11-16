@@ -13,6 +13,7 @@ def app(fixture_db, tmp_path, monkeypatch):
     monkeypatch.setenv("FLEET_DB", str(fixture_db))
     monkeypatch.setenv("FLEET_ENV_FILE", str(tmp_path / "missing.env"))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("AGENT_BACKEND", "api")
     at = AppTest.from_file(APP, default_timeout=60)
     at.run()
     return at
@@ -83,6 +84,7 @@ def test_agent_api_failure_shows_plain_message_and_collapsed_details(fixture_db,
     monkeypatch.setenv("FLEET_DB", str(fixture_db))
     monkeypatch.setenv("FLEET_ENV_FILE", str(tmp_path / "missing.env"))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-not-real")
+    monkeypatch.setenv("AGENT_BACKEND", "api")
     monkeypatch.setattr(A, "make_client", lambda: object())
     monkeypatch.setattr(A, "ask", fail)
     at = AppTest.from_file(APP, default_timeout=60)
@@ -94,3 +96,38 @@ def test_agent_api_failure_shows_plain_message_and_collapsed_details(fixture_db,
     assert [e.value for e in at.error] == ["The API account has no credit. Add credit, then ask again."]
     details = [x for x in at.expander if x.label == "Error details"]
     assert details and "credit balance is too low" in details[0].code[0].value
+
+
+def _cc_app(fixture_db, tmp_path, monkeypatch, fake_ask):
+    from fleetdata import agent_claude_code as CC
+    monkeypatch.setenv("FLEET_DB", str(fixture_db))
+    monkeypatch.setenv("FLEET_ENV_FILE", str(tmp_path / "missing.env"))
+    monkeypatch.setenv("AGENT_BACKEND", "claude_code")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(CC, "ask", fake_ask)
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    at.text_input[0].input("How many departures did JC115 have on 2026-10-01?")
+    at.button[0].click()
+    at.run()
+    return at
+
+
+def test_agent_claude_code_backend_needs_no_key_and_shows_backend(fixture_db, tmp_path, monkeypatch):
+    from fleetdata import agent as A
+    fake = lambda q, db, model: A.AgentResult(q, "Observed: 5 departures [#1].", [], model, "end_turn", backend="claude_code")
+    at = _cc_app(fixture_db, tmp_path, monkeypatch, fake)
+    assert not at.exception and not at.error
+    assert any("Backend: **claude_code**" in c.value for c in at.caption)
+    assert any("answered by backend **claude_code**" in c.value for c in at.caption)
+
+
+def test_agent_claude_code_failure_shows_plain_message(fixture_db, tmp_path, monkeypatch):
+    from fleetdata import agent_claude_code as CC
+
+    def fail(q, db, model):
+        raise CC.ClaudeCodeError("Claude Code exited with code 1: Not logged in · Please run /login")
+    at = _cc_app(fixture_db, tmp_path, monkeypatch, fail)
+    assert not at.exception
+    assert [e.value for e in at.error] == ["Claude Code is not logged in. Run `claude` once and log in with your subscription."]
+    assert "Not logged in" in [x for x in at.expander if x.label == "Error details"][0].code[0].value

@@ -86,18 +86,29 @@ Discovery notes and data dictionary: `docs/discovery/`.
 
 ## Step 4: investigation agent
 
-Put these in `.env` (git-ignored). The app loads them at runtime:
+Settings go in `.env` (git-ignored) and are loaded at runtime:
 
 ```
-ANTHROPIC_API_KEY=...
+AGENT_BACKEND=claude_code         # claude_code (default) or api
 AGENT_MODEL=claude-sonnet-5-5     # optional; this is the default
+ANTHROPIC_API_KEY=...             # only needed for AGENT_BACKEND=api
 ```
 
 ```bash
-.venv/Scripts/python -m fleetdata.agent "What was the LightGBM test MAE for departures?"
+.venv/Scripts/python -m fleetdata.agent "What was the LightGBM test MAE for departures?"   # [--backend api|claude_code]
 .venv/Scripts/python -m fleetdata.agent_eval --mode replay   # offline: scripted tool calls, checks tools + grader
-.venv/Scripts/python -m fleetdata.agent_eval --mode live     # calls the API (costs money): measures the agent
+.venv/Scripts/python -m fleetdata.agent_eval --mode live     # the selected backend answers the 10 questions
 ```
+
+**Two backends, same tools, same checks.**
+- `claude_code` (default): runs the Claude Code CLI non-interactively (`claude -p`) once per question, under your logged-in Claude subscription. No API key is needed. The five tools are served by a local MCP server over stdio (`fleetdata/agent_mcp.py`), which calls the same `run_tool` code as the API path. Every built-in Claude Code tool (file, shell, web) is disabled, and only the five `mcp__fleet__*` tools are allowed. The turn limit is 9 (8 tool calls plus the answer), and the MCP server also refuses a 9th call. The child process gets the environment **without** `ANTHROPIC_API_KEY`. Each run checks that Claude Code reported `apiKeySource: none` and that no other tools were available, and refuses the answer otherwise. The exact flags are listed in `fleetdata/agent_claude_code.py`.
+- `api`: the original tool-use loop on the Anthropic API with `ANTHROPIC_API_KEY`. It is billed per token.
+
+**Limits of the claude_code backend.**
+- **Local only:** it needs the `claude` CLI installed and logged in on the same machine.
+- **Plan allowance:** each question uses your subscription's allowance, about 7,000 tokens in the eval.
+- **Token cap:** the 80,000-token cap is not enforced mid-run; tokens are only reported afterwards. The tool-call and turn limits still apply.
+- **Public use:** a public or shared deployment must use `AGENT_BACKEND=api`. A subscription login is for personal use and must not serve other people.
 
 - **One tool-use loop** over five read-only tools: `station_lookup`, `hourly_flow`, `forecast_vs_actual`, `model_metrics` and `simulation_results`. Arguments are validated, SQL is fixed and parameterized, and results are capped at 200 rows. The model cannot run its own SQL.
 - **Limits per question:** 8 tool calls and an 80,000-token cap.
@@ -116,6 +127,6 @@ Four views, each value badged **Observed**, **Predicted** or **Simulated**:
 1. **Station map:** installed JC/Hoboken stations with bikes and docks from the single GBFS snapshot.
 2. **Forecast vs actual:** pick a station, a target and October 2026 dates. Shows hourly actual against the LightGBM forecast, with an optional baseline, and MAE/WAPE.
 3. **Policy simulation:** no action vs the greedy truck, as paired differences with a 95% CI, an hourly chart and the assumptions. All of it is simulated.
-4. **Ask the agent:** answers from the step-4 agent, with every tool call and its result. This view needs `ANTHROPIC_API_KEY` in `.env` and calls the paid API.
+4. **Ask the agent:** answers from the step-4 agent, with every tool call and its result, and the backend that answered. With the default `AGENT_BACKEND=claude_code` it uses your local Claude Code login and plan allowance. With `api` it needs `ANTHROPIC_API_KEY` and calls the paid API.
 
 The app is local only and reads the database read-only. It shows a banner stating that this is independent analysis, not affiliated with the operator.

@@ -2,12 +2,14 @@
 (trips, snapshot, forecast_predictions, sim_runs, sim_summary), independently of the agent's tool code.
 
 Modes
-  live     ask the real agent (needs ANTHROPIC_API_KEY with API credit). Measures the agent.
+  live     ask the real agent with the selected backend (AGENT_BACKEND or --backend): claude_code uses the local
+           Claude Code login (plan allowance); api needs ANTHROPIC_API_KEY with credit. Measures the agent.
   replay   a SCRIPTED client replays a fixed sequence of tool calls per question and writes the answer from the
            tool results. It measures whether the tools can supply the right numbers and whether the loop, the
            number check and the grader work. It does NOT measure the model.
 
-Usage:  python -m fleetdata.agent_eval [--mode live|replay|both]   (writes reports/agent_eval.json)
+Usage:  python -m fleetdata.agent_eval [--mode live|replay|both] [--backend api|claude_code] [--record-dir DIR]
+        (writes reports/agent_eval.json)
 """
 from __future__ import annotations
 
@@ -156,33 +158,51 @@ class Row:
     tool_calls: list = dataclasses.field(default_factory=list)
     unverified_numbers: list = dataclasses.field(default_factory=list)
     tokens: int = 0
+    backend: str = ""
+    model: str = ""
+    stop: str = ""
 
 
-def run_mode(mode: str, db_path: pathlib.Path, exp: dict) -> list[Row]:
+def run_mode(mode: str, db_path: pathlib.Path, exp: dict, backend: str | None = None,
+             record_dir: pathlib.Path | None = None) -> list[Row]:
+    """replay: SCRIPTED client on the API loop. live: the configured backend (AGENT_BACKEND, or `backend`)."""
     rows, client, model = [], None, A.DEFAULT_MODEL
+    backend_used = "replay"
     if mode == "live":
         s = A.load_settings()
-        model = s["model"]
-        if not s["has_key"]:
-            return [Row(q["id"], q["question"], exp.get(q["id"], "unsupported"), mode, None, "no ANTHROPIC_API_KEY") for q in QUESTIONS]
-        client = A.make_client()
+        model, backend_used = s["model"], backend or s["backend"]
+        if backend_used == "api":
+            if not s["has_key"]:
+                return [Row(q["id"], q["question"], exp.get(q["id"], "unsupported"), mode, None, "no ANTHROPIC_API_KEY",
+                            backend=backend_used) for q in QUESTIONS]
+            client = A.make_client()
+    if record_dir:
+        record_dir.mkdir(parents=True, exist_ok=True)
     failed = None
     for q in QUESTIONS:
         e = exp.get(q["id"], "unsupported")
-        if failed:                                     # do not keep calling an API that already refused
-            rows.append(Row(q["id"], q["question"], e, mode, None, f"not run after earlier API failure: {failed}"))
+        if failed:                                     # do not keep calling a backend that already failed
+            rows.append(Row(q["id"], q["question"], e, mode, None, f"not run after earlier failure: {failed}",
+                            backend=backend_used))
             continue
-        c = ScriptedClient(q["replay"], q["answer"]) if mode == "replay" else client
         try:
-            r = A.ask(q["question"], c, db_path, model)
-        except Exception as err:                       # live API failure: record it, do not score
+            if mode == "replay":
+                r = A.ask(q["question"], ScriptedClient(q["replay"], q["answer"]), db_path, model)
+            elif backend_used == "claude_code":
+                from fleetdata import agent_claude_code
+                r = agent_claude_code.ask(q["question"], db_path, model,
+                                          record_to=record_dir / f"{q['id']}.jsonl" if record_dir else None)
+            else:
+                r = A.ask(q["question"], client, db_path, model)
+        except Exception as err:                       # live failure: record it, do not score
             failed = f"{type(err).__name__}: {str(err)[:200]}"
-            rows.append(Row(q["id"], q["question"], e, mode, None, f"API call failed: {failed}"))
+            rows.append(Row(q["id"], q["question"], e, mode, None, f"run failed: {failed}", backend=backend_used))
             continue
         ok, detail = grade(q, r.answer, exp.get(q["id"]))
         rows.append(Row(q["id"], q["question"], e, mode, ok, detail, r.answer,
                         [dict(n=t.n, name=t.name, args=t.args, error=t.error) for t in r.tool_calls],
-                        r.unverified_numbers, r.input_tokens + r.output_tokens))
+                        r.unverified_numbers, r.input_tokens + r.output_tokens,
+                        backend=backend_used if mode == "live" else "replay", model=r.model, stop=r.stop))
     return rows
 
 
@@ -191,17 +211,20 @@ def main() -> None:
     ap.add_argument("--db", default="data/fleet.duckdb", type=pathlib.Path)
     ap.add_argument("--mode", default="both", choices=["live", "replay", "both"])
     ap.add_argument("--out", default="reports/agent_eval.json", type=pathlib.Path)
+    ap.add_argument("--backend", choices=A.BACKENDS, help="live backend; default AGENT_BACKEND (claude_code)")
+    ap.add_argument("--record-dir", type=pathlib.Path, help="claude_code only: save sanitized stream-json per question")
     a = ap.parse_args()
     exp = expected_values(a.db)
     rows = []
     for mode in (["replay", "live"] if a.mode == "both" else [a.mode]):
-        rows += run_mode(mode, a.db, exp)
+        rows += run_mode(mode, a.db, exp, a.backend, a.record_dir)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps([dataclasses.asdict(r) for r in rows], indent=2, default=str), encoding="utf-8")
     for mode in dict.fromkeys(r.mode for r in rows):
         m = [r for r in rows if r.mode == mode]
         scored = [r for r in m if r.correct is not None]
-        label = "SCRIPTED replay (tools + loop + grader; not the model)" if mode == "replay" else "LIVE agent"
+        label = ("SCRIPTED replay (tools + loop + grader; not the model)" if mode == "replay"
+                 else f"LIVE agent, backend {m[0].backend}, model {next((r.model for r in m if r.model), '?')}")
         print(f"\n=== {label}: {sum(r.correct for r in scored)}/{len(scored)} correct"
               f"{'' if len(scored) == len(m) else f' ({len(m) - len(scored)} not scored)'} ===")
         for r in m:

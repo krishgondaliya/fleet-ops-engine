@@ -28,6 +28,8 @@ INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 BLUE, ORANGE = "#2a78d6", "#eb6834"          # validated categorical slots 1-2 (light surface)
 # Map fill scale (diverging, readable on the dark basemap): orange = empty, neutral gray = half, light blue = full
 EMPTY_RGB, MID_RGB, FULL_RGB = (240, 112, 56), (170, 170, 170), (96, 166, 245)
+BACKEND_NOTE = {"claude_code": "Claude Code CLI under your logged-in subscription; uses plan allowance; local only",
+                "api": "Anthropic API with ANTHROPIC_API_KEY; billed per token"}
 BADGE = {"Observed": "gray", "Predicted": "blue", "Simulated": "orange"}
 BANNER = ("**Independent analysis of public bike-share data.** Not affiliated with, endorsed by, or operated by the "
           "bike-share operator or its sponsors. Raw data is not redistributed.")
@@ -244,33 +246,37 @@ def _label_kind(label: str) -> str:
 
 def view_agent():
     st.subheader("Ask the agent")
+    try:
+        settings = A.load_settings(ENV_FILE)
+    except ValueError as e:
+        st.error(str(e))
+        return
     st.caption(f"Answers come only from {len(A.TOOL_SCHEMAS)} read-only tools (no free-form SQL), at most "
-               f"{A.MAX_TOOL_CALLS} tool calls and {A.TOKEN_CAP:,} tokens per question. Numbers not found in any tool "
-               "result are flagged. Calls the Anthropic API (paid).")
-    settings = A.load_settings(ENV_FILE)
+               f"{A.MAX_TOOL_CALLS} tool calls per question. Numbers not found in any tool result are flagged.")
+    st.caption(f"Backend: **{settings['backend']}** · {BACKEND_NOTE[settings['backend']]} (set AGENT_BACKEND in .env).")
     with st.form("ask"):
         question = st.text_input("Question", placeholder="e.g. How many departures did JC115 have on 2026-10-05?", max_chars=500)
         go = st.form_submit_button("Ask")
     if go and question.strip():
-        if not settings["has_key"]:
-            st.error("ANTHROPIC_API_KEY is not set in .env, so the agent cannot run.")
-        else:
-            import anthropic
-            with st.spinner(f"Asking {settings['model']}…"):
-                try:
-                    st.session_state.setdefault("history", []).insert(
-                        0, A.ask(question.strip(), A.make_client(), DB, settings["model"]))
-                except anthropic.APIError as e:
-                    st.error(A.describe_api_error(e))
-                    with st.expander("Error details", expanded=False):
-                        st.code(f"{type(e).__name__}: {getattr(e, 'message', e)}", language=None)
+        import anthropic
+        from fleetdata import agent_claude_code as CC
+        with st.spinner(f"Asking {settings['model']} via {settings['backend']}…"):
+            try:
+                st.session_state.setdefault("history", []).insert(0, A.answer(question.strip(), settings, DB))
+            except A.MissingKeyError:
+                st.error("ANTHROPIC_API_KEY is not set in .env, so the api backend cannot run. "
+                         "Set AGENT_BACKEND=claude_code to use your Claude Code login instead.")
+            except (anthropic.APIError, CC.ClaudeCodeError) as e:
+                st.error(CC.describe_error(e) if isinstance(e, CC.ClaudeCodeError) else A.describe_api_error(e))
+                with st.expander("Error details", expanded=False):
+                    st.code(f"{type(e).__name__}: {getattr(e, 'message', e)}", language=None)
     for res in st.session_state.get("history", []):
         with st.container(border=True):
             st.markdown(f"**Q:** {res.question}")
             st.text(res.answer)
             if res.unverified_numbers:
                 st.warning("Unverified numbers (not found in any tool result): " + ", ".join(res.unverified_numbers))
-            st.caption(f"model {res.model} · stop {res.stop} · {len(res.tool_calls)} tool call(s) · "
+            st.caption(f"answered by backend **{res.backend}** · model {res.model} · stop {res.stop} · {len(res.tool_calls)} tool call(s) · "
                        f"tokens in {res.input_tokens:,} / out {res.output_tokens:,}")
             for c in res.tool_calls:
                 kind = _label_kind(c.result["label"]) if c.result else None
