@@ -1,0 +1,89 @@
+{
+  "provenance": "REAL provider data subset (not synthetic). 10 stations filtered from one live fetch per feed; envelope fields unchanged.",
+  "license_note": "Citi Bike Data License Agreement https://citibikenyc.com/data-sharing-policy . Test fixture only; not a stand-alone dataset. Re-review before making the repo public.",
+  "discovery": {
+    "url": "https://gbfs.citibikenyc.com/gbfs/2.3/gbfs.json",
+    "fetched_at_utc": "2026-11-16T03:06:49+00:00",
+    "http_status": 200,
+    "bytes": 3589,
+    "etag": "\"190f7db1454f8718651199a70667ec35\"",
+    "last_modified": "Mon, 16 Nov 2026 03:05:55 GMT",
+    "cache_control": null,
+    "content_encoding": null
+  },
+  "station_information": {
+    "url": "https://gbfs.lyft.com/gbfs/2.3/bkn/en/station_information.json",
+    "fetched_at_utc": "2026-11-16T03:06:49+00:00",
+    "http_status": 200,
+    "bytes": 801371,
+    "etag": "\"26e64ea4c0942dd2fab3b4438628fb55\"",
+    "last_modified": "Mon, 16 Nov 2026 03:05:55 GMT",
+    "cache_control": null,
+    "content_encoding": null,
+    "original_station_count": 2519
+  },
+  "station_status": {
+    "url": "https://gbfs.lyft.com/gbfs/2.3/bkn/en/station_status.json",
+    "fetched_at_utc": "2026-11-16T03:06:50+00:00",
+    "http_status": 200,
+    "bytes": 1081770,
+    "etag": "\"78ebd6d5deb3c2d13a5805d8c6bb04f3\"",
+    "last_modified": "Mon, 16 Nov 2026 03:05:57 GMT",
+    "cache_control": null,
+    "content_encoding": null,
+    "original_station_count": 2519
+  },
+  "selection_rule": "(deterministic, no hand-typed names):\n  - 8 stations: installed+docked stations in regions {70 JC, 311 Hoboken}, nearest to seed (40.7190, -74.0400)  [cluster C]\n  - 1 edge case: is_installed=1 and is_renting=0 (first by station_id), if present\n  - 1 edge case: last_reported < 1e6 (placeholder-like), first by station_id, if present\n  Missing edge cases are back-filled with the next-nearest cluster-C stations.",
+  "selected": [
+    {
+      "station_id": "66dddc08-0aca-11e7-82f6-3863bb44ef7c",
+      "short_name": "JC014",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "2290031f-e7d8-40a3-9ad6-566df493bbbc",
+      "short_name": "JC115",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "2218569564729174336",
+      "short_name": "JC149",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "66dd5a42-0aca-11e7-82f6-3863bb44ef7c",
+      "short_name": "JC006",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "22cd02a2-228f-4eeb-b249-cbea51a0e219",
+      "short_name": "JC097",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "66dd5960-0aca-11e7-82f6-3863bb44ef7c",
+      "short_name": "JC003",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "66dddae7-0aca-11e7-82f6-3863bb44ef7c",
+      "short_name": "JC082",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "a59f4f11-5d52-43a2-8a32-ae71137a6af8",
+      "short_name": "JC102",
+      "reason": "cluster_C_nearest"
+    },
+    {
+      "station_id": "15e1568b-f502-47a2-9d3d-b5aaa1edc239",
+      "short_name": "5129.01",
+      "reason": "edge_installed_not_renting"
+    },
+    {
+      "station_id": "05b9e7cd-f3a2-4d48-b7c4-f5fbe09d9de3",
+      "short_name": "6545.07",
+      "reason": "edge_placeholder_last_reported"
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "data": {
+    "stations": [
+      {
+        "station_id": "15e1568b-f502-47a2-9d3d-b5aaa1edc239",
+        "name": "Palmetto St & Traffic Ave",
+        "short_name": "5129.01",
+        "lon": -73.89441,
+        "lat": 40.70929,
+        "region_id": "71",
+        "capacity": 21,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "05b9e7cd-f3a2-4d48-b7c4-f5fbe09d9de3",
+        "name": "Broadway & 51 St",
+        "short_name": "6545.07",
+        "lon": -73.908906,
+        "lat": 40.754164,
+        "region_id": "71",
+        "capacity": 0,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "66dd5960-0aca-11e7-82f6-3863bb44ef7c",
+        "name": "City Hall",
+        "short_name": "JC003",
+        "lon": -74.043845,
+        "lat": 40.7177325,
+        "region_id": "70",
+        "capacity": 22,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "a59f4f11-5d52-43a2-8a32-ae71137a6af8",
+        "name": "Grand St",
+        "short_name": "JC102",
+        "lon": -74.03768330812454,
+        "lat": 40.71517767732029,
+        "region_id": "70",
+        "capacity": 18,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "66dddae7-0aca-11e7-82f6-3863bb44ef7c",
+        "name": "Manila & 1st",
+        "short_name": "JC082",
+        "lon": -74.04288411140442,
+        "lat": 40.721650724879986,
+        "region_id": "70",
+        "capacity": 18,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "2218569564729174336",
+        "name": "Washington St & Morgan St",
+        "short_name": "JC149",
+        "lon": -74.03689158686865,
+        "lat": 40.719445793042716,
+        "region_id": "70",
+        "capacity": 30,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "22cd02a2-228f-4eeb-b249-cbea51a0e219",
+        "name": "York St & Marin Blvd",
+        "short_name": "JC097",
+        "lon": -74.0424120426178,
+        "lat": 40.716615000830494,
+        "region_id": "70",
+        "capacity": 18,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "2290031f-e7d8-40a3-9ad6-566df493bbbc",
+        "name": "Grove St PATH",
+        "short_name": "JC115",
+        "lon": -74.04309,
+        "lat": 40.71941,
+        "region_id": "70",
+        "capacity": 42,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "66dd5a42-0aca-11e7-82f6-3863bb44ef7c",
+        "name": "Warren St",
+        "short_name": "JC006",
+        "lon": -74.03805095,
+        "lat": 40.7211236,
+        "region_id": "70",
+        "capacity": 22,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      },
+      {
+        "station_id": "66dddc08-0aca-11e7-82f6-3863bb44ef7c",
+        "name": "Columbus Drive",
+        "short_name": "JC014",
+        "lon": -74.03891444206238,
+        "lat": 40.71835519823214,
+        "region_id": "70",
+        "capacity": 14,
+        "rental_uris": {
+          "android": "https://bkn.lft.to/lastmile_qr_scan",
+          "ios": "https://bkn.lft.to/lastmile_qr_scan"
+        },
+        "is_charging": false
+      }
+    ]
+  },
+  "last_updated": 1794798354,
+  "ttl": 60,
+  "version": "2.3"
+}
