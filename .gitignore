@@ -7,3 +7,6 @@ __pycache__/
 *.parquet
 *.csv
 *.zip
+
+# test fixtures are small and intentional (real GBFS subset + SYNTHETIC trips)
+!tests/fixtures/**/*.csv

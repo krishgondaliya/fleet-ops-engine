@@ -1,5 +1,7 @@
 # Project instructions for Claude Code
 
+> **SCOPE (2026-11-16): offline prototype.** No continuous polling and no collector. Live GBFS is used only as one-off, manually triggered snapshots (`python -m fleetdata.download --refresh-gbfs`). `context/ARCHITECT_PROPOSAL.md` is **superseded wherever it conflicts with this scope**. That includes its always-on collector, M1 "collector live", the label gates that depend on accumulated snapshots, the VM deployment, and the bronze/silver polling layout. Stack: Python 3.11, venv + pip, DuckDB.
+
 Working title: **Citi Bike: Agentic Fleet Forecasting & Optimization Engine**. Independent analysis based on public data; NOT an official Citi Bike service or partnership.
 
 ## Read first

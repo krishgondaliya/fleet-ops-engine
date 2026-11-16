@@ -1,0 +1,10 @@
+# Python 3.11. Install with: python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+duckdb==2.0.0
+requests==2.34.2
+tzdata==2026.6   # IANA zone data for zoneinfo (Windows has no system tz database)
+pytest==9.2.0
+# step 2: forecast
+lightgbm==4.7.0
+pandas==3.1.1
+numpy==2.4.6
+matplotlib==3.11.2
