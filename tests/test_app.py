@@ -1,0 +1,55 @@
+"""Offline smoke tests for the Streamlit app (app.py) using streamlit's AppTest, against the fixture DB
+(REAL 10-station GBFS subset + SYNTHETIC trips/forecasts + SIMULATED sim_* tables). No API calls."""
+import pathlib
+
+import pytest
+from streamlit.testing.v1 import AppTest
+
+APP = str(pathlib.Path(__file__).parents[1] / "app.py")
+
+
+@pytest.fixture
+def app(fixture_db, tmp_path, monkeypatch):
+    monkeypatch.setenv("FLEET_DB", str(fixture_db))
+    monkeypatch.setenv("FLEET_ENV_FILE", str(tmp_path / "missing.env"))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    return at
+
+
+def texts(at) -> str:
+    parts = [e.value for kind in ("markdown", "caption", "info", "warning", "error", "subheader", "title") for e in getattr(at, kind)]
+    parts += [m.label for m in at.metric]
+    return "\n".join(map(str, parts))
+
+
+def test_renders_four_views_without_errors(app):
+    assert not app.exception
+    assert [t.label for t in app.tabs] == ["Station map", "Forecast vs actual", "Policy simulation", "Ask the agent"]
+    assert app.title[0].value == "Dock Balance Lab"
+
+
+def test_banner_and_no_operator_brand(app):
+    assert "not affiliated" in app.info[0].value.lower()
+    allt = texts(app).lower()
+    assert "citi" not in allt and "lyft" not in allt
+
+
+def test_every_metric_is_badged(app):
+    assert app.metric, "expected metrics"
+    for m in app.metric:
+        assert any(k in m.label for k in ("[Observed]", "[Predicted]", "[Simulated]")), m.label
+
+
+def test_simulation_view_is_labeled_simulated(app):
+    assert "Every number on this page is SIMULATED" in texts(app)
+    assert any("[Simulated]" in m.label for m in app.metric)
+
+
+def test_agent_without_key_explains_instead_of_calling(app):
+    app.text_input[0].input("How many departures did JC115 have on 2026-10-01?")
+    app.button[0].click()
+    app.run()
+    assert not app.exception
+    assert any("ANTHROPIC_API_KEY is not set" in e.value for e in app.error)

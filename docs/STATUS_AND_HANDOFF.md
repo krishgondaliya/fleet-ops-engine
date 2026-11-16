@@ -15,6 +15,18 @@
 | External resources currently running | **None** |
 
 ## Current outcome
+**Step 5, the app (`app.py`, "Dock Balance Lab"), runs locally.**
+- Command: `.venv/Scripts/streamlit run app.py`. It reads the database read-only and serves on localhost only. Nothing is deployed.
+- **Views:**
+  - Station map: snapshot bikes and docks for 105 installed stations.
+  - Forecast vs actual: station, target and October 2026 date range, with an optional baseline and MAE/WAPE.
+  - Policy simulation: paired differences with CI, an hourly chart and the assumptions.
+  - Ask the agent: the answer, any unverified numbers, and each tool call with its label and JSON result.
+- **Labels:** every metric label carries [Observed], [Predicted] or [Simulated], plus a section badge. A banner says the app is independent analysis and not affiliated with the operator. The app name contains no operator brand (tested).
+- **Chart colors:** blue `#2a78d6` and orange `#eb6834` passed the palette validator (CVD ΔE 24.7, normal ΔE 33.6, contrast ≥ 3:1 on a light surface). Observed actuals are drawn in dark ink. Dark mode was not separately validated.
+- **Not done:** charts were rendered headless (AppTest) and the server health check passed, but nobody looked at the page in a browser.
+- The agent view cannot answer live until the API credit issue (step 4) is resolved. Without a key it shows an error instead of calling the API (tested).
+
 **Step 4, the investigation agent, is built and tested offline. It has NOT been measured live.**
 - **Live API calls fail:** HTTP 400 `invalid_request_error`, "Your credit balance is too low to access the Anthropic API" (request `req_011Ch5wjYDkTAkE6RdRPTiqL`, 2026-11-15). The key loads from `.env` (contents not read or printed). **The live agent score is unmeasured: 0 of 10 questions scored.**
 - Code: `fleetdata/agent_tools.py` (5 read-only tools), `fleetdata/agent.py` (one manual tool-use loop), `fleetdata/agent_eval.py` (10 questions + grader). Tests: `tests/test_agent.py`.
@@ -83,12 +95,16 @@ Limits of the simulator (stated assumptions, not findings):
 | S1 | Offline data layer (download, build, summary, tests) | **verified done** | Commands and results below |
 | S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done**; final, not to be retuned | Commands and results below |
 | S3 | One-day simulator, two policies, 30 paired seeds | **verified done** | Commands and results below |
+| S5 | Streamlit app, 4 views, badges, banner | **done; headless-tested** (not visually inspected in a browser) | Commands and results below |
 | S4 | Investigation agent: tools, loop, 10-question eval | **built; offline-tested; live score not measured** (API credit) | Commands and results below |
 | ~~M1~~ | Collector live | **cancelled** (scope change) | — |
 
 ## Exact verification evidence
 | Command | Time (UTC) | Observed outcome |
 |---|---|---|
+| `.venv/Scripts/python.exe -m pytest -q` (step 5) | 2026-11-15 | **134 passed in 15.56s** (128 earlier + 5 app (AppTest) + 1 network-guard). The guard now allows loopback only, which asyncio's self-pipe on Windows needs |
+| AppTest of `app.py` against the real `data/fleet.duckdb` | 2026-11-15 | No exceptions. Metrics: 105 stations, 902 bikes, 921 docks, 3 empty [Observed]; greedy lost rentals 209.2, failed returns 138.6 [Simulated] |
+| `streamlit run app.py --server.address 127.0.0.1 --server.port 8599` + `curl /_stcore/health` | 2026-11-15 | `ok`; server then stopped |
 | `.venv/Scripts/python.exe -m pytest -q` (step 4) | 2026-11-15 | **128 passed in 12.64s** (91 earlier + 37 agent; offline, scripted client) |
 | `.venv/Scripts/python.exe -m fleetdata.agent_eval --mode both` | 2026-11-15 | Replay **10/10**; live **0 scored**: the first call returned HTTP 400 "credit balance is too low", and the remaining 9 were not sent |
 | `.venv/Scripts/python.exe -m pytest -q` (step 3) | 2026-11-15 | **91 passed in 7.34s** (23 earlier + 68 simulator; offline) |
@@ -155,7 +171,7 @@ Observations:
 | Complete arrivals (cross-river) | requires-user-decision | Optionally download NYC months (about 1 GB each) and filter to trips ending in JC/Hoboken |
 
 ## Next ready ticket
-- **Ticket:** step 5, the app (per `docs/PLAN.md`). Open item from step 4: add API credit, then run `python -m fleetdata.agent_eval --mode live`.
+- **Ticket:** none queued. Steps 3–5 of `docs/PLAN.md` are done. Open items: add API credit, then run `python -m fleetdata.agent_eval --mode live`; inspect the app visually in a browser; choose the public name.
 - **Commands for a fresh session:**
   - `.venv/Scripts/python.exe -m pytest -q`
   - `.venv/Scripts/python.exe -m fleetdata.build`

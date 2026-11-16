@@ -103,3 +103,19 @@ AGENT_MODEL=claude-sonnet-5-5     # optional; this is the default
 - **Limits per question:** 8 tool calls and an 80,000-token cap.
 - **Numbers:** every number in an answer is checked against the tool results, and unmatched numbers are flagged as unverified. The list of tool calls is appended to every answer.
 - **Eval:** 10 questions whose answers are computed directly with SQL. Results are written to `reports/agent_eval.json`.
+
+## Step 5: the app (Dock Balance Lab)
+
+```bash
+# prerequisites: steps 1-3 have built data/fleet.duckdb (build, forecast, sim)
+.venv/Scripts/streamlit run app.py            # opens http://localhost:8501
+# options: FLEET_DB=path/to.duckdb (default data/fleet.duckdb), FLEET_ENV_FILE=path/to/.env (default .env)
+```
+
+Four views, each value badged **Observed**, **Predicted** or **Simulated**:
+1. **Station map:** installed JC/Hoboken stations with bikes and docks from the single GBFS snapshot.
+2. **Forecast vs actual:** pick a station, a target and October 2026 dates. Shows hourly actual against the LightGBM forecast, with an optional baseline, and MAE/WAPE.
+3. **Policy simulation:** no action vs the greedy truck, as paired differences with a 95% CI, an hourly chart and the assumptions. All of it is simulated.
+4. **Ask the agent:** answers from the step-4 agent, with every tool call and its result. This view needs `ANTHROPIC_API_KEY` in `.env` and calls the paid API.
+
+The app is local only and reads the database read-only. It shows a banner stating that this is independent analysis, not affiliated with the operator.
