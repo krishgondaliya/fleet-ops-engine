@@ -15,8 +15,34 @@
 | External resources currently running | **None** |
 
 ## Current outcome
+**Independent audit after steps 3–5 (auditor subagent, 2026-11-16):** no high-severity findings. It reproduced 134 passing tests and the replay 10/10, and matched every claimed simulator, forecast and app number against the database. No data or secrets are in git history.
+
+Fixed after the audit:
+- **M2, app exposure.** `.streamlit/config.toml` binds the app to 127.0.0.1. Before this fix, the README command listened on all interfaces, so anyone on the local network could spend API credit.
+- **M1, number check** (`fleetdata/agent.py`):
+  - Numbers in model arguments, notes and failed calls are no longer evidence.
+  - A signed number must match its sign.
+  - Sums and differences count only within one result row or totals block.
+  - Dates are no longer split into numbers.
+  - New tests cover the audit's laundering and sign cases.
+  - Remaining limit: small integers such as hours 0–23 can still match a returned value by coincidence.
+- **M3, grader, partly fixed.** Signs are now enforced, and an answer listing more than 3×expected+10 numbers fails. **Still open:** Q8 and Q9 (simulated) and Q5 and Q7 (forecast) take their expected values from the same pipeline tables the tools read, so they test retrieval, not an independent recomputation. Only Q1–Q4 and Q6 are checked against base tables.
+- **L2, CI scope.** The simulator CI covers seed-to-seed randomness only. This is now stated in the README.
+- **L3, README.** It now says `forecast_predictions` holds the test month only.
+
+Left open (low severity):
+- **L1, DST fall-back leakage.** On 2025-11-02 (25 local hours), one training row's `lag24` reads the forecast day's first hour. This affects training only; the October test month has no DST change. A fix needs a forecast code change, and step 2 is frozen, so it is recorded instead.
+- **L4, simulator gaps.**
+  - A station-hour missing from the forecast table would silently get rate 0. Today the grid is complete (105×744).
+  - `truck.count > 1` would share one truck position.
+  - `over_capacity_clipped` counts stations, not bikes clipped.
+- **L5, agent limits.** The token cap is checked before each request, so one request can overshoot it. Prompt injection via station names is mitigated (labelled untrusted, read-only tools) but untested live.
+- **L6, app.** The query cache has no TTL, so restart the app after rerunning the simulator.
+
+Verification after the fixes: `.venv/Scripts/python.exe -m pytest -q` → **136 passed in 15.12s**. `python -m fleetdata.agent_eval --mode replay` → 10/10.
+
 **Step 5, the app (`app.py`, "Dock Balance Lab"), runs locally.**
-- Command: `.venv/Scripts/streamlit run app.py`. It reads the database read-only and serves on localhost only. Nothing is deployed.
+- Command: `.venv/Scripts/streamlit run app.py`. It reads the database read-only and is bound to 127.0.0.1 by `.streamlit/config.toml` (added after the audit). Nothing is deployed.
 - **Views:**
   - Station map: snapshot bikes and docks for 105 installed stations.
   - Forecast vs actual: station, target and October 2026 date range, with an optional baseline and MAE/WAPE.

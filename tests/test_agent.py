@@ -122,10 +122,25 @@ def test_unverified_numbers_are_flagged(db):
     assert r.unverified_numbers == ["987654"] and "Unverified numbers" in r.full_answer()
 
 
+def test_number_check_rejects_laundered_args_errors_and_wrong_signs(db):
+    """Audit cases: numbers the model put in its own arguments, or in a failed call, are not evidence;
+    a signed number must match the sign of the tool value."""
+    c = E.ScriptedClient([[("station_lookup", {"query": "4321"})]], answer="JC115 had 4321 departures [#1].")
+    assert A.ask("q", c, db).unverified_numbers == ["4321"]
+    c = E.ScriptedClient([[("hourly_flow", {"short_name": "JC115", "start_date": "2026-10-01", "end_date": "9999"})]],
+                         answer="There were 9999 departures.")
+    assert A.ask("q", c, db).unverified_numbers == ["9999"]
+    calls = [A.ToolCall(1, "x", {}, {"rows": [{"departures": 178}], "totals": {"a": 120, "b": 58}})]
+    assert A.check_numbers("-178 departures", calls) == ["-178"]
+    assert A.check_numbers("178 departures", calls) == []
+
+
 def test_number_check_accepts_rounding_percent_and_simple_sums():
-    calls = [A.ToolCall(1, "x", {}, {"a": 0.62004, "b": 120, "c": 58, "s": "2026-10-07 17:00:00"})]
+    calls = [A.ToolCall(1, "x", {}, {"a": 0.62004, "b": 120, "c": 58, "s": "2026-10-07 17:00:00", "d": -26.8})]
     assert A.check_numbers("WAPE 0.62, or 62%; total 178; hour 17; JC115 [#1]", calls) == []
     assert A.check_numbers("WAPE 0.7", calls) == ["0.7"]
+    assert A.check_numbers("a change of -26.8, i.e. 26.8 fewer", calls) == []
+    assert A.check_numbers("year 2026", calls) == ["2026"]      # dates are not split into evidence
 
 
 def test_refusal_is_reported_not_answered(db):
@@ -152,6 +167,12 @@ def test_settings_report_key_presence_only(tmp_path, monkeypatch):
 ])
 def test_grader_matching(expected, tok, ok):
     assert E.matches(expected, tok) is ok
+
+
+def test_grader_signs_and_number_dumps():
+    assert not E.matches(39.97, "-40.0") and E.matches(-39.97, "-40.0") and E.matches(-39.97, "40.0")
+    q = {"id": "Q2"}
+    assert not E.grade(q, " ".join(str(i) for i in range(300)), [178.0])[0]
 
 
 def test_grader_unsupported_requires_prefix():

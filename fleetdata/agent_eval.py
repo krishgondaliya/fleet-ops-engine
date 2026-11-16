@@ -92,11 +92,13 @@ def expected_values(db_path: pathlib.Path) -> dict[str, list[float]]:
 def matches(expected: float, tok: str) -> bool:
     """The answer number (with d decimals) equals the expected value rounded to d decimals, and d is precise enough
     that rounding error is at most 5% of the value. Percentages (x100) are also accepted."""
-    x = abs(A._to_float(tok))
+    x = A._to_float(tok)
+    if tok.lstrip()[0] not in "-−":          # an unsigned number may state a magnitude ("40 fewer")
+        x, expected = abs(x), abs(expected)
     d = len(tok.split(".")[1]) if "." in tok else 0
     step = 10 ** -d
-    for v in (abs(expected), abs(expected) * 100):
-        if abs(x - v) <= 0.5 * step + 1e-9 and (v == round(v) or step <= 0.05 * v):
+    for v in (expected, expected * 100):
+        if abs(x - v) <= 0.5 * step + 1e-9 and (v == round(v) or step <= 0.05 * abs(v)):
             return True
     return False
 
@@ -106,6 +108,8 @@ def grade(q: dict, answer: str, expected: list[float] | None) -> tuple[bool, str
         ok = answer.strip().startswith(A.UNSUPPORTED_PREFIX)
         return ok, "says unsupported" if ok else "did not decline"
     toks = A.numbers_in(answer)
+    if len(toks) > 3 * len(expected) + 10:      # a dump of many numbers cannot earn credit by containing the right one
+        return False, f"too many numbers in the answer ({len(toks)})"
     missing = [v for v in expected if not any(matches(v, t) for t in toks)]
     return not missing, "all expected numbers present" if not missing else f"missing {missing}"
 

@@ -1,0 +1,7 @@
+# Local only: the "Ask the agent" view spends API credit, so never listen on other interfaces.
+[server]
+address = "127.0.0.1"
+headless = true
+
+[browser]
+gatherUsageStats = false

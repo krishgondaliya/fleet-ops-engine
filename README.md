@@ -56,7 +56,7 @@ Caveats:
 - **Comparison:** LightGBM (Poisson objective) against "same hour last week" and the "4-week same-hour average".
 
 Outputs:
-- **Tables:** `demand_grid`, `forecast_predictions` (test and validation months), `forecast_metrics`, `forecast_metrics_by_hour`, `forecast_metrics_by_station`, `forecast_bootstrap` and `forecast_runs`.
+- **Tables:** `demand_grid`, `forecast_predictions` (test month only), `forecast_metrics`, `forecast_metrics_by_hour`, `forecast_metrics_by_station`, `forecast_bootstrap` and `forecast_runs`.
 - **Models:** `data/models/lgbm_{departures,arrivals}.txt` and `forecast_run.json`.
 - **Charts:** `reports/error_by_hour.png` and `reports/busiest_station_week.png`.
 
@@ -80,7 +80,7 @@ Discovery notes and data dictionary: `docs/discovery/`.
 - **Start:** bikes from the GBFS snapshot for installed JC/Hoboken stations, clipped to `[0, capacity]`.
 - **Scenario:** one day, hour by hour. Departures and arrivals per station-hour are Poisson draws whose rates are the mean step-2 forecast for a non-holiday October 2026 weekday. A departure at an empty station is a lost rental; an arrival at a full station is a failed return.
 - **Policies:** `no_action`, and `greedy`: one truck that each operating hour moves bikes from the fullest reachable station to the emptiest within a travel budget. Every truck assumption is in `config/sim.json`.
-- **Comparison:** 30 seeds; each seed's demand is drawn once and replayed for both policies. Results are paired differences with a 95% bootstrap interval.
+- **Comparison:** 30 seeds; each seed's demand is drawn once and replayed for both policies. Results are paired differences with a 95% bootstrap interval. The interval covers **only seed-to-seed randomness**, not forecast error, truck-parameter uncertainty or the start-state assumption.
 - **Tables:** `sim_runs`, `sim_summary`, `sim_hourly`, `sim_station`, `sim_moves`, `sim_meta` (every row carries `label = 'SIMULATED'`).
 - **Limits:** riders do not carry bikes between stations in the model (arrivals are independent draws), rates are completed trips rather than demand, and the truck parameters are assumptions. Results compare policies under identical simulated scenarios; they are not operational evidence.
 
@@ -101,14 +101,14 @@ AGENT_MODEL=claude-sonnet-5-5     # optional; this is the default
 
 - **One tool-use loop** over five read-only tools: `station_lookup`, `hourly_flow`, `forecast_vs_actual`, `model_metrics` and `simulation_results`. Arguments are validated, SQL is fixed and parameterized, and results are capped at 200 rows. The model cannot run its own SQL.
 - **Limits per question:** 8 tool calls and an 80,000-token cap.
-- **Numbers:** every number in an answer is checked against the tool results, and unmatched numbers are flagged as unverified. The list of tool calls is appended to every answer.
+- **Numbers:** each number in an answer is checked against the values the tools returned. Arguments, notes and failed calls do not count, and a signed number must match the sign. Unmatched numbers are flagged as unverified. The check is a guard, not a proof: small numbers such as hours 0–23 often match some returned value by coincidence. The list of tool calls is appended to every answer.
 - **Eval:** 10 questions whose answers are computed directly with SQL. Results are written to `reports/agent_eval.json`.
 
 ## Step 5: the app (Dock Balance Lab)
 
 ```bash
 # prerequisites: steps 1-3 have built data/fleet.duckdb (build, forecast, sim)
-.venv/Scripts/streamlit run app.py            # opens http://localhost:8501
+.venv/Scripts/streamlit run app.py            # http://127.0.0.1:8501 (bound to loopback by .streamlit/config.toml)
 # options: FLEET_DB=path/to.duckdb (default data/fleet.duckdb), FLEET_ENV_FILE=path/to/.env (default .env)
 ```
 

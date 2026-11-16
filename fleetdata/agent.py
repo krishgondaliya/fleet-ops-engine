@@ -110,41 +110,53 @@ def _to_float(tok: str) -> float:
     return float(tok.replace(",", "").replace("−", "-"))
 
 
-def _collect(obj, out: list[float]) -> None:
-    if isinstance(obj, bool):
-        return
-    if isinstance(obj, (int, float)):
-        out.append(float(obj))
-    elif isinstance(obj, dict):
-        for v in obj.values():
-            _collect(v, out)
+_TS = re.compile(r"^\d{4}-\d{2}-\d{2} (\d{2}):\d{2}:\d{2}$")
+_NOT_EVIDENCE = {"args", "note", "tool", "label"}     # echoed model arguments and fixed text are not evidence
+
+
+def _collect(obj, values: list[float], groups: list[list[float]]) -> None:
+    """Numeric values from a tool result. Model-supplied arguments and notes are excluded; a timestamp contributes
+    only its hour; plain dates contribute nothing. Each dict's own numbers form a group (for sums/differences)."""
+    if isinstance(obj, dict):
+        own = [float(v) for k, v in obj.items() if k not in _NOT_EVIDENCE and isinstance(v, (int, float)) and not isinstance(v, bool)]
+        values.extend(own)
+        groups.append(own)
+        for k, v in obj.items():
+            if k not in _NOT_EVIDENCE and isinstance(v, (dict, list, str)):
+                _collect(v, values, groups)
     elif isinstance(obj, list):
         for v in obj:
-            _collect(v, out)
-    elif isinstance(obj, str):          # e.g. "2026-10-07 17:00:00" contributes 2026, 10, 7, 17, 0
-        out.extend(_to_float(t) for t in _NUM.findall(obj))
+            _collect(v, values, groups)
+    elif isinstance(obj, str) and (m := _TS.match(obj)):
+        values.append(float(m.group(1)))
 
 
-def supported(tok: str, sources: list[float]) -> bool:
-    """A number is supported if some tool value rounds to it at the number's precision (also as a percentage),
-    or if it is a sum or difference of two tool values."""
-    x = abs(_to_float(tok))
+def supported(tok: str, values: list[float], groups: list[list[float]] = ()) -> bool:
+    """Supported if a tool value rounds to the number at its precision (or x100 as a percentage). A signed number
+    must match the sign; an unsigned one may match a magnitude. Sums and differences are accepted only between
+    two values of the same result row or totals block."""
+    x = _to_float(tok)
+    signed = tok.lstrip()[0] in "-−"
     d = len(tok.split(".")[1]) if "." in tok else 0
     tol = 0.5 * 10 ** -d + 1e-9
-    vals = [abs(v) for v in sources]
-    if any(abs(v - x) <= tol or abs(v * 100 - x) <= tol for v in vals):
+
+    def ok(v: float) -> bool:
+        v = v if signed else abs(v)
+        return abs(v - x) <= tol or abs(v * 100 - x) <= tol
+
+    if any(ok(v) for v in values):
         return True
-    small = vals[:400]
-    return any(abs(a + b - x) <= tol or abs(abs(a - b) - x) <= tol for i, a in enumerate(small) for b in small[i + 1:])
+    return any(ok(a + b) or ok(a - b) or ok(b - a) for g in groups for i, a in enumerate(g) for b in g[i + 1:])
 
 
 def check_numbers(answer: str, calls: list[ToolCall]) -> list[str]:
-    sources: list[float] = []
+    values: list[float] = []
+    groups: list[list[float]] = []
     for c in calls:
-        _collect(c.result, sources)
-        _collect(c.args, sources)
-    sources += [float(len(calls)), float(MAX_TOOL_CALLS)]
-    return [t for t in numbers_in(answer) if not supported(t, sources)]
+        if c.result is not None and c.error is None:
+            _collect(c.result, values, groups)
+    values += [float(len(calls)), float(MAX_TOOL_CALLS)]
+    return [t for t in numbers_in(answer) if not supported(t, values, groups)]
 
 
 # ---------------- loop ----------------
