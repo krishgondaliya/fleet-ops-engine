@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 import os
 import pathlib
 
@@ -25,6 +26,8 @@ DB = pathlib.Path(os.environ.get("FLEET_DB", "data/fleet.duckdb"))
 ENV_FILE = os.environ.get("FLEET_ENV_FILE", ".env")
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 BLUE, ORANGE = "#2a78d6", "#eb6834"          # validated categorical slots 1-2 (light surface)
+# Map fill scale (diverging, readable on the dark basemap): orange = empty, neutral gray = half, light blue = full
+EMPTY_RGB, MID_RGB, FULL_RGB = (240, 112, 56), (170, 170, 170), (96, 166, 245)
 BADGE = {"Observed": "gray", "Predicted": "blue", "Simulated": "orange"}
 BANNER = ("**Independent analysis of public bike-share data.** Not affiliated with, endorsed by, or operated by the "
           "bike-share operator or its sponsors. Raw data is not redistributed.")
@@ -53,6 +56,33 @@ def has_table(name: str) -> bool:
     return bool(q("SELECT count(*) AS n FROM information_schema.tables WHERE table_name = ?", (name,)).n.iloc[0])
 
 
+def fill_rgb(f: float) -> list[int]:
+    """Diverging scale: 0 = EMPTY_RGB, 0.5 = MID_RGB, 1 = FULL_RGB."""
+    a, b, t = (EMPTY_RGB, MID_RGB, f / 0.5) if f <= 0.5 else (MID_RGB, FULL_RGB, (f - 0.5) / 0.5)
+    return [round(x + (y - x) * t) for x, y in zip(a, b)]
+
+
+def fit_view(lat: pd.Series, lon: pd.Series, width_px: int = 900, height_px: int = 500) -> pdk.ViewState:
+    """Center on the stations and pick the largest zoom (Web Mercator) that fits their bounding box, with padding."""
+    lat0, lat1, lon0, lon1 = lat.min(), lat.max(), lon.min(), lon.max()
+
+    def merc(d):
+        return math.log(math.tan(math.pi / 4 + math.radians(d) / 2))
+
+    lon_span = max(lon1 - lon0, 1e-3) / 360
+    lat_span = max(merc(lat1) - merc(lat0), 1e-4) / (2 * math.pi)
+    zoom = min(math.log2(width_px / 256 / lon_span), math.log2(height_px / 256 / lat_span)) - 0.35
+    return pdk.ViewState(latitude=(lat0 + lat1) / 2, longitude=(lon0 + lon1) / 2, zoom=round(min(zoom, 16), 2))
+
+
+def map_legend() -> str:
+    stops = ", ".join(f"rgb{tuple(fill_rgb(f))} {int(f * 100)}%" for f in (0, 0.5, 1))
+    return ('<div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin:4px 0 2px">'
+            '<span>Empty (0 bikes)</span>'
+            f'<span style="flex:0 0 220px;height:12px;border-radius:6px;background:linear-gradient(90deg, {stops})"></span>'
+            '<span>Full (0 docks)</span><span style="opacity:0.7">· gray = half full</span></div>')
+
+
 # ---------------- views ----------------
 def view_map():
     st.subheader("Stations: bikes and docks at the snapshot")
@@ -68,27 +98,28 @@ def view_map():
     installed = df[df.is_installed]
     st.caption(f"One GBFS snapshot fetched {df.fetched_at_utc.iloc[0]:%Y-%m-%d %H:%M} UTC. A single instant, not history. "
                f"{len(df) - len(installed)} station(s) not installed are hidden.")
-    c = st.columns(4)
+    c = st.columns(5)
     c[0].metric(f"Stations {tag('Observed')}", f"{len(installed):,}")
     c[1].metric(f"Bikes available {tag('Observed')}", f"{int(installed.bikes.sum()):,}")
     c[2].metric(f"Docks available {tag('Observed')}", f"{int(installed.docks.sum()):,}")
     c[3].metric(f"Empty stations {tag('Observed')}", f"{int((installed.bikes == 0).sum()):,}")
+    c[4].metric(f"Full stations {tag('Observed')}", f"{int((installed.docks == 0).sum()):,}")
     m = installed.copy()
     m["fill"] = (m.bikes / m.capacity.where(m.capacity > 0)).clip(0, 1).fillna(0)
-    # Sequential single hue (blue ramp): lighter = emptier, darker = fuller
-    lo, hi = (205, 226, 251), (16, 66, 129)
-    m["color"] = [[int(a + (b - a) * f) for a, b in zip(lo, hi)] + [220] for f in m.fill]
+    m["color"] = [fill_rgb(f) + [235] for f in m.fill]
     m["radius"] = 25 + m.capacity * 2.5
-    m["tip"] = [f"<b>{html.escape(str(r.short_name))}</b> {html.escape(str(r.name))}<br/>"
-                f"{tag('Observed')} bikes {r.bikes} · docks {r.docks} · capacity {r.capacity}"
+    m["tip"] = [f"<b>{html.escape(str(r.name))}</b> ({html.escape(str(r.short_name))})<br/>"
+                f"Bikes {r.bikes} · Docks {r.docks} · Capacity {r.capacity} {tag('Observed')}"
                 + ("<br/>stale report" if r.is_stale else "") + ("" if r.is_renting else "<br/>not renting")
                 for r in m.itertuples()]
     layer = pdk.Layer("ScatterplotLayer", m[["lon", "lat", "radius", "color", "tip"]], get_position=["lon", "lat"],
-                      get_radius="radius", get_fill_color="color", get_line_color=[255, 255, 255], line_width_min_pixels=1,
-                      stroked=True, pickable=True)
-    st.pydeck_chart(pdk.Deck(layers=[layer], tooltip={"html": "{tip}"},
-                             initial_view_state=pdk.ViewState(latitude=m.lat.mean(), longitude=m.lon.mean(), zoom=12.5)))
-    st.caption("Circle size = capacity. Color = share of docks holding an available bike (light = empty, dark = full).")
+                      get_radius="radius", get_fill_color="color", get_line_color=[20, 20, 20], line_width_min_pixels=1,
+                      stroked=True, pickable=True, auto_highlight=True)
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=fit_view(m.lat, m.lon),
+                             tooltip={"html": "{tip}", "style": {"backgroundColor": "#1f1f1f", "color": "#f5f5f5",
+                                                                 "fontSize": "13px", "padding": "6px 8px"}}))
+    st.markdown(map_legend(), unsafe_allow_html=True)
+    st.caption("Circle size = capacity. Color = share of docks holding an available bike. Hover a station for details.")
     with st.expander("Table view"):
         t = m[["short_name", "name", "capacity", "bikes", "docks", "bikes_disabled", "is_renting", "is_stale"]]
         st.dataframe(t.rename(columns={"bikes": f"bikes {tag('Observed')}", "docks": f"docks {tag('Observed')}"}),
@@ -131,7 +162,7 @@ def view_forecast():
     base = alt.Chart(long).encode(x=alt.X("hour_local:T", title="Local time (America/New_York)"),
                                   y=alt.Y("trips:Q", title=f"{target.capitalize()} per hour"),
                                   color=alt.Color("series:N", scale=alt.Scale(domain=domain, range=colors),
-                                                  legend=alt.Legend(orient="top", title=None)))
+                                                  legend=alt.Legend(orient="top", title=None, labelLimit=0, columns=3)))
     lines = base.mark_line(strokeWidth=2, interpolate="monotone")
     pts = base.mark_point(size=60, filled=True).encode(opacity=alt.condition(hover, alt.value(1), alt.value(0)),
                                                        tooltip=[alt.Tooltip("hour_local:T", format="%a %d %b %H:%M"), "series:N",
@@ -142,9 +173,9 @@ def view_forecast():
     e = df[df.in_eval_set]
     c = st.columns(4)
     c[0].metric(f"Actual total {tag('Observed')}", f"{int(df.actual.sum()):,}")
-    c[1].metric(f"LightGBM total {tag('Predicted')}", f"{df.pred_lightgbm.sum():,.1f}")
-    c[2].metric(f"LightGBM MAE, range {tag('Predicted')}", f"{(e.actual - e.pred_lightgbm).abs().mean():.3f}" if len(e) else "n/a")
-    c[3].metric(f"4-week avg MAE, range {tag('Predicted')}", f"{(e.actual - e.pred_avg_4w).abs().mean():.3f}" if len(e) else "n/a")
+    c[1].metric(f"LightGBM total {tag('Predicted')}", f"{df.pred_lightgbm.sum():,.0f}")
+    c[2].metric(f"LightGBM MAE, selected dates {tag('Predicted')}", f"{(e.actual - e.pred_lightgbm).abs().mean():.3f}" if len(e) else "n/a")
+    c[3].metric(f"4-week avg MAE, selected dates {tag('Predicted')}", f"{(e.actual - e.pred_avg_4w).abs().mean():.3f}" if len(e) else "n/a")
     ms = q("SELECT * FROM forecast_metrics_by_station WHERE short_name = ? AND target = ?", (sn, target))
     if not ms.empty:
         r = ms.iloc[0]
@@ -182,9 +213,9 @@ def view_sim():
     h["policy"] = h.policy.map({"no_action": "No action", "greedy": "Greedy truck"})
     chart = alt.Chart(h).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
         x=alt.X("hour_local:O", title="Local hour"), xOffset="policy:N",
-        y=alt.Y("unserved:Q", title="Lost rentals + failed returns (mean per day, SIMULATED)"),
+        y=alt.Y("unserved:Q", title=["Lost rentals + failed returns", "(mean per day, SIMULATED)"]),
         color=alt.Color("policy:N", scale=alt.Scale(domain=["No action", "Greedy truck"], range=[ORANGE, BLUE]),
-                        legend=alt.Legend(orient="top", title=None)),
+                        legend=alt.Legend(orient="top", title=None, labelLimit=0)),
         tooltip=["policy:N", "hour_local:O", alt.Tooltip("unserved:Q", format=".1f", title="unserved (Simulated)")])
     st.altair_chart(chart.properties(height=300).configure_axis(gridColor=GRID, labelColor=INK2, titleColor=INK2),
                     width="stretch")
@@ -230,7 +261,9 @@ def view_agent():
                     st.session_state.setdefault("history", []).insert(
                         0, A.ask(question.strip(), A.make_client(), DB, settings["model"]))
                 except anthropic.APIError as e:
-                    st.error(f"API call failed ({type(e).__name__}): {getattr(e, 'message', e)}")
+                    st.error(A.describe_api_error(e))
+                    with st.expander("Error details", expanded=False):
+                        st.code(f"{type(e).__name__}: {getattr(e, 'message', e)}", language=None)
     for res in st.session_state.get("history", []):
         with st.container(border=True):
             st.markdown(f"**Q:** {res.question}")

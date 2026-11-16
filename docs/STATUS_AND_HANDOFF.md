@@ -208,3 +208,10 @@ Observations:
 1. Read `CLAUDE.md` (scope header), this file and `docs/discovery/DATA_DICTIONARY_DRAFT.md`.
 2. Run `git status`, then the two commands above.
 3. Follow `prompts/05_RESUME_SESSION.md`.
+
+## App polish (2026-11-16)
+- Station map: diverging fill scale (orange = empty, gray = half, light blue = full) chosen for the dark basemap, with a gradient legend under the map; view auto-fits the station bounding box (real DB: center 40.723, -74.061, zoom 12.71); hover tooltip shows name, short name, bikes, docks, capacity; new "Full stations [Observed]" tile (docks = 0; real DB: 6, empty: 3).
+- Forecast: legend labels no longer truncate (`labelLimit=0`); LightGBM total shown as a whole number; MAE tiles renamed "... MAE, selected dates".
+- Simulation: y-axis title split over two lines so it is not cut off.
+- Agent: API failures show a short plain message (`fleetdata.agent.describe_api_error`, e.g. "The API account has no credit.") with the raw error in a collapsed "Error details" expander.
+- Tests: `.venv/Scripts/python.exe -m pytest -q` -> 140 passed in 21.27s (4 new tests). App also run headless on the real DB via AppTest with no exceptions. Not inspected visually in a browser.

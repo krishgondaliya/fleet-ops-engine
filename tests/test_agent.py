@@ -179,3 +179,14 @@ def test_grader_unsupported_requires_prefix():
     q = {"unsupported": True}
     assert E.grade(q, f"{A.UNSUPPORTED_PREFIX} no status history.", None)[0]
     assert not E.grade(q, "About 12 rentals were lost.", None)[0]
+
+
+def test_describe_api_error_is_short_and_plain():
+    import anthropic
+    from tests._api_errors import api_error
+    assert A.describe_api_error(api_error(anthropic.BadRequestError, "Your credit balance is too low")).startswith(
+        "The API account has no credit")
+    assert A.describe_api_error(api_error(anthropic.AuthenticationError, "invalid x-api-key")).startswith(
+        "The API key was rejected")
+    assert A.describe_api_error(api_error(anthropic.APIConnectionError, "Connection error.")).startswith(
+        "Could not reach the API")

@@ -97,6 +97,27 @@ def make_client():
     return anthropic.Anthropic(max_retries=2, timeout=120.0)
 
 
+def describe_api_error(e: Exception) -> str:
+    """Short plain-language message for a failed API call (callers show the raw error separately)."""
+    import anthropic
+    msg = str(getattr(e, "message", e)).lower()
+    if "credit balance" in msg:
+        return "The API account has no credit. Add credit, then ask again."
+    if isinstance(e, anthropic.AuthenticationError):
+        return "The API key was rejected. Check ANTHROPIC_API_KEY in .env."
+    if isinstance(e, anthropic.PermissionDeniedError):
+        return "The API key does not have access to this model. Check AGENT_MODEL in .env."
+    if isinstance(e, anthropic.NotFoundError):
+        return "The model was not found. Check AGENT_MODEL in .env."
+    if isinstance(e, anthropic.RateLimitError):
+        return "The API rate limit was reached. Wait a minute and ask again."
+    if isinstance(e, anthropic.APIConnectionError):
+        return "Could not reach the API. Check the network connection."
+    if isinstance(e, anthropic.InternalServerError):
+        return "The API had a server error. Try again later."
+    return "The API call failed."
+
+
 # ---------------- number check ----------------
 _NUM = re.compile(r"(?<![\w.])[-−]?\d[\d,]*(?:\.\d+)?")
 _SKIP = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\b(?:JC|HB)\d{3}\b|\[#\d+\]|\b\d{4}\.\d{2}\b", re.I)

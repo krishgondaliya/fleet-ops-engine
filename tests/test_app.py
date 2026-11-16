@@ -53,3 +53,44 @@ def test_agent_without_key_explains_instead_of_calling(app):
     app.run()
     assert not app.exception
     assert any("ANTHROPIC_API_KEY is not set" in e.value for e in app.error)
+
+
+def test_map_counts_empty_and_full_stations(app):
+    labels = [m.label for m in app.metric]
+    assert any(l.startswith("Empty stations") for l in labels) and any(l.startswith("Full stations") for l in labels)
+
+
+def test_map_scale_and_view_fit():
+    import pandas as pd
+    # The helpers are pure; load them without running the Streamlit script body.
+    src = (pathlib.Path(APP).read_text(encoding="utf-8")).rsplit("\nmain()", 1)[0]
+    ns: dict = {}
+    exec(compile(src, APP, "exec"), ns)
+    assert ns["fill_rgb"](0) == list(ns["EMPTY_RGB"]) and ns["fill_rgb"](1) == list(ns["FULL_RGB"])
+    assert ns["fill_rgb"](0.5) == list(ns["MID_RGB"])
+    v = ns["fit_view"](pd.Series([40.70, 40.76]), pd.Series([-74.09, -74.02]))
+    assert 11.5 < v.zoom < 13.5 and abs(v.longitude + 74.055) < 1e-9
+
+
+def test_agent_api_failure_shows_plain_message_and_collapsed_details(fixture_db, tmp_path, monkeypatch):
+    import anthropic
+    from fleetdata import agent as A
+    from tests._api_errors import api_error
+
+    def fail(*a, **k):
+        raise api_error(anthropic.BadRequestError, "Your credit balance is too low to access the Anthropic API.")
+
+    monkeypatch.setenv("FLEET_DB", str(fixture_db))
+    monkeypatch.setenv("FLEET_ENV_FILE", str(tmp_path / "missing.env"))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-not-real")
+    monkeypatch.setattr(A, "make_client", lambda: object())
+    monkeypatch.setattr(A, "ask", fail)
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    at.text_input[0].input("How many departures did JC115 have on 2026-10-01?")
+    at.button[0].click()
+    at.run()
+    assert not at.exception
+    assert [e.value for e in at.error] == ["The API account has no credit. Add credit, then ask again."]
+    details = [x for x in at.expander if x.label == "Error details"]
+    assert details and "credit balance is too low" in details[0].code[0].value
