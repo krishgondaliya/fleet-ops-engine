@@ -7,14 +7,36 @@
 
 | Item | Value |
 |---|---|
-| Last updated (UTC) | 2026-11-16 ~03:45 |
-| Latest git commit | 530d006. All work below is **not committed** (per instruction) |
-| Branch | `m0-discovery` |
+| Last updated (UTC) | see the newest step section below |
+| Latest git commit | see `git log` (steps 1–2 committed in df65560; each later step is committed locally, never pushed) |
+| Branch | `main` (local only) |
 | Architecture decision version | None approved. Offline scope per this file and the `CLAUDE.md` header |
 | Source/policy verification last checked | 2026-11-16 (`docs/discovery/SOURCES_AND_POLICY.md`) |
 | External resources currently running | **None** |
 
 ## Current outcome
+**Step 3, a one-day SIMULATOR, runs on real inputs.** Every number in this section is **SIMULATED**.
+- Command: `.venv/Scripts/python.exe -m fleetdata.sim` (about 1 s). Assumptions: `config/sim.json`. Code: `fleetdata/sim.py`. Tests: `tests/test_sim.py`.
+- Start state (observed): 105 installed JC/Hoboken stations, 2,004 docks, 902 bikes from the snapshot fetched 2026-11-16 03:20:48 UTC. Clipping to capacity changed no counts (the 3 `over_capacity` stations are over because of disabled bikes/docks, not available bikes). 3 stale station reports are used as-is.
+- Demand (predicted → simulated): Poisson rates = mean step-2 LightGBM prediction per station and local hour over the 21 non-holiday Oct 2026 weekdays. Expected 2,655 departures and 2,604 arrivals per day. Predictions are only read; the model is not refit or re-scored.
+- Policies: `no_action` and `greedy` (1 truck, 20 bikes, 1 move per hour from 06 to 22 local, 6 road-km per hour, circuity 1.3, target fill 0.5, minimum fill gap 0.25).
+- 30 seeds; demand for each seed is drawn once and replayed for both policies (common random numbers).
+
+| SIMULATED, mean per day | no_action | greedy | paired diff (greedy − no_action) | 95% bootstrap CI | seeds where greedy better |
+|---|---|---|---|---|---|
+| lost rentals | 236.0 | 209.2 | −26.8 | [−31.7, −21.7] | 29/30 |
+| failed returns | 178.5 | 138.6 | −40.0 | [−43.8, −36.3] | 30/30 |
+| total unserved | 414.5 | 347.7 | −66.8 | [−74.5, −59.3] | 30/30 |
+
+Greedy truck activity (SIMULATED mean): 16 moves, 122 bikes, 66 km per day.
+
+Limits of the simulator (stated assumptions, not findings):
+- Arrivals are drawn independently of departures, so riders do not carry bikes between stations. A lost rental does not reduce later arrivals, and a failed return does not reroute the rider.
+- Rates are **completed trips**, not demand, and arrivals miss NYC-origin trips (step 1). Simulated lost rentals are therefore a lower bound on the scenario's own shortfall, not a forecast of real stockouts.
+- The start state is a late-evening November snapshot used as the start of an October weekday.
+- Stations not renting or not returning in the snapshot (3) are simulated as open.
+- The truck's travel budget, speed and circuity are assumptions, not operator data. The results compare two policies under identical simulated scenarios; they are not evidence about real operations.
+
 **Step 2, a day-ahead hourly forecast, is measured on the October 2026 test month.**
 - LightGBM (Poisson) beats both baselines for departures and arrivals. Paired day-block bootstrap 95% intervals exclude zero.
 - Against the 4-week same-hour average the margin is small: about 3% relative MAE (WAPE 0.620 vs 0.642 for departures, 0.619 vs 0.636 for arrivals).
@@ -30,12 +52,16 @@
 |---|---|---|---|
 | M0 | Feasibility and evidence memo | verified done (docs) | `docs/discovery/*.md` |
 | S1 | Offline data layer (download, build, summary, tests) | **verified done** | Commands and results below |
-| S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done** | Commands and results below |
+| S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done**; final, not to be retuned | Commands and results below |
+| S3 | One-day simulator, two policies, 30 paired seeds | **verified done** | Commands and results below |
 | ~~M1~~ | Collector live | **cancelled** (scope change) | — |
 
 ## Exact verification evidence
 | Command | Time (UTC) | Observed outcome |
 |---|---|---|
+| `.venv/Scripts/python.exe -m pytest -q` (step 3) | 2026-11-15 | **91 passed in 7.34s** (23 earlier + 68 simulator; offline) |
+| Simulator mutation check: (a) treat an empty station as able to rent, (b) truck drops off one extra bike | 2026-11-15 | (a) 41 failed, (b) 20 failed (bounds/counting and conservation tests detect them); restored code: 68 passed |
+| `.venv/Scripts/python.exe -m fleetdata.sim` | 2026-11-15 | Results table above (SIMULATED). Writes `sim_runs`, `sim_summary`, `sim_hourly`, `sim_station`, `sim_moves`, `sim_meta` |
 | `.venv/Scripts/python.exe -m pytest -v` | ~03:44 | **23 passed in 7.41s** (14 data layer + 9 forecast; offline) |
 | Leakage-test mutation check: inject `lag(23)` into a copy of `make_features` | ~03:40 | Both leakage tests **FAIL** on the mutant (they detect the leak) and pass on the real code |
 | `.venv/Scripts/python.exe -m fleetdata.forecast` | ~03:41 | 105 stations, 882,003 grid rows (train 728,283 / valid 75,600 / test 78,120). Test metrics below. About 2 min 24 s |
@@ -96,14 +122,12 @@ Observations:
 | Complete arrivals (cross-river) | requires-user-decision | Optionally download NYC months (about 1 GB each) and filter to trips ending in JC/Hoboken |
 
 ## Next ready ticket
-- **Ticket:** step 3, decided by the user. Candidates:
-  - an untouched holdout: Nov 2026 trips, once published, to evaluate the frozen model and the "drop month" variant;
-  - a station-identity crosswalk for retired IDs;
-  - an ablation of the lag features.
+- **Ticket:** step 4, the investigation agent (per `docs/PLAN.md`), then step 5, the app.
 - **Commands for a fresh session:**
   - `.venv/Scripts/python.exe -m pytest -q`
   - `.venv/Scripts/python.exe -m fleetdata.build`
-  - `.venv/Scripts/python.exe -m fleetdata.forecast` (re-running re-predicts October; treat any rerun as non-blind)
+  - `.venv/Scripts/python.exe -m fleetdata.forecast` (do **not** rerun: step 2 is final; rerunning re-predicts October)
+  - `.venv/Scripts/python.exe -m fleetdata.sim`
 
 ## How a fresh session should resume
 1. Read `CLAUDE.md` (scope header), this file and `docs/discovery/DATA_DICTIONARY_DRAFT.md`.

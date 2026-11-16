@@ -70,3 +70,16 @@ Outputs:
 - **Results cover one test month (Oct 2026)** and one validation month. They are not seasonal estimates.
 
 Discovery notes and data dictionary: `docs/discovery/`.
+
+## Step 3: one-day simulator (all outputs SIMULATED)
+
+```bash
+.venv/Scripts/python -m fleetdata.sim          # about 1 s. Reads stations, snapshot, forecast_predictions
+```
+
+- **Start:** bikes from the GBFS snapshot for installed JC/Hoboken stations, clipped to `[0, capacity]`.
+- **Scenario:** one day, hour by hour. Departures and arrivals per station-hour are Poisson draws whose rates are the mean step-2 forecast for a non-holiday October 2026 weekday. A departure at an empty station is a lost rental; an arrival at a full station is a failed return.
+- **Policies:** `no_action`, and `greedy`: one truck that each operating hour moves bikes from the fullest reachable station to the emptiest within a travel budget. Every truck assumption is in `config/sim.json`.
+- **Comparison:** 30 seeds; each seed's demand is drawn once and replayed for both policies. Results are paired differences with a 95% bootstrap interval.
+- **Tables:** `sim_runs`, `sim_summary`, `sim_hourly`, `sim_station`, `sim_moves`, `sim_meta` (every row carries `label = 'SIMULATED'`).
+- **Limits:** riders do not carry bikes between stations in the model (arrivals are independent draws), rates are completed trips rather than demand, and the truck parameters are assumptions. Results compare policies under identical simulated scenarios; they are not operational evidence.
