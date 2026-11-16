@@ -122,7 +122,7 @@ Limits of the simulator (stated assumptions, not findings):
 | S2 | Day-ahead hourly forecast (grid, baselines, LightGBM, metrics, charts, leakage tests) | **verified done**; final, not to be retuned | Commands and results below |
 | S3 | One-day simulator, two policies, 30 paired seeds | **verified done** | Commands and results below |
 | S5 | Streamlit app, 4 views, badges, banner | **done; headless-tested** (not visually inspected in a browser) | Commands and results below |
-| S4 | Investigation agent: tools, loop, 10-question eval | **verified done**; live score **9/10** on the claude_code backend (api backend still unscored: no API credit) | Commands and results below |
+| S4 | Investigation agent: tools, loop, 10-question eval | **verified done**; live score on the claude_code backend: **9/10 before the grader fix, 10/10 after** (api backend still unscored: no API credit) | Commands and results below |
 | S4b | claude_code backend: local MCP server + Claude Code CLI under the subscription | **verified done** | See "claude_code backend" below |
 | ~~M1~~ | Collector live | **cancelled** (scope change) | — |
 
@@ -193,7 +193,7 @@ Observations:
 ## Blockers / approvals
 | Blocker | Class | Exact unblock action |
 |---|---|---|
-| Live agent evaluation, **api backend only** | requires-cost-approval | Add Anthropic API credit; then `python -m fleetdata.agent_eval --mode live --backend api`. The claude_code backend is measured (9/10) |
+| Live agent evaluation, **api backend only** | requires-cost-approval | Add Anthropic API credit; then `python -m fleetdata.agent_eval --mode live --backend api`. The claude_code backend is measured (10/10 after the grader fix; 9/10 before) |
 | Public name | requires-user-decision | Neutral name before any public artifact |
 | Complete arrivals (cross-river) | requires-user-decision | Optionally download NYC months (about 1 GB each) and filter to trips ending in JC/Hoboken |
 
@@ -246,6 +246,20 @@ How each run is isolated:
 - **Failure, Q4** (busiest hour at JC115 on 2026-10-07; expected hour 17 with 55 departures). The answer was "the 17:00 local hour … 55 observed completed departures [#1]". That is correct, but the grader strips `HH:MM` times before reading numbers, so it did not find 17. This is a grader limitation, not an agent error. The score is reported as measured and the grader was not changed after seeing the results.
 - **Unverified-number flags** (false positives of the number check): Q5 flagged `2026` (from "October 2026") and `95` (from "95% CI"); Q7 flagged `2026`. Every reported value in those answers matched a tool result.
 - Results are in `reports/agent_eval.json`, which replaces the earlier file whose live rows were all unscored.
+
+**Grader and number-check fix, then second live run (2026-11-16)**
+
+| Run | Grader / number check | Live score (claude_code, claude-sonnet-5-5) |
+|---|---|---|
+| 1, commit 6536538 | original | **9/10**; Q4 failed |
+| 2, after the fix | fixed | **10/10** |
+
+- **The change was to the grader, not the agent.** The Q4 answer in run 1 was already correct (hour 17, 55 departures); the grader ignored clock times such as "17:00".
+- `agent_eval.grade` now reads `HH:MM` as hour HH. The number check (`agent.numbers_in`) now skips a year only after a month name ("October 2026", "5 Oct 2026") and the level in "95% CI" / "95% confidence" / "CI 95%". A bare "2026", a count such as "2026 departures" and any other percentage are still checked.
+- Tests added: `test_number_check_ignores_month_years_and_the_95_percent_level_only` and `test_grader_reads_clock_times_as_hours`. `.venv/Scripts/python.exe -m pytest -q` → **165 passed in 21.12s**.
+- Run 2: command `.venv/Scripts/python.exe -m fleetdata.agent_eval --mode both --backend claude_code`. Replay 10/10. Live **10/10**, 65,138 tokens in total, one tool call on each of Q1-Q9 and none on Q10, no tool errors, no unverified numbers, `reports/agent_eval.json` overwritten (run 1 is in git history).
+- **Real failures: none in either run.** The only failure (run 1, Q4) was the grader. The fix was made after seeing run 1's results, and the 10 questions were not changed, so 10/10 is a regraded result on the same questions, not a fresh blind test. Q10 (unsupported) passes by prefix.
+- Still true: the eval covers 10 questions with one run each. It does not measure run-to-run variation, and Q5, Q7, Q8 and Q9 take their expected values from pipeline tables (see the audit notes above).
 
 **Verification**
 - `.venv/Scripts/python.exe -m pytest -q` → **163 passed in 20.64s**, offline.

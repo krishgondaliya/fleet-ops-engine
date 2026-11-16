@@ -147,7 +147,12 @@ def describe_api_error(e: Exception) -> str:
 
 # ---------------- number check ----------------
 _NUM = re.compile(r"(?<![\w.])[-−]?\d[\d,]*(?:\.\d+)?")
-_SKIP = re.compile(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\b(?:JC|HB)\d{3}\b|\[#\d+\]|\b\d{4}\.\d{2}\b", re.I)
+_MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?"
+_SKIP = re.compile(
+    r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}:\d{2}\b|\b(?:JC|HB)\d{3}\b|\[#\d+\]|\b\d{4}\.\d{2}\b"
+    rf"|\b(?:\d{{1,2}}\s+)?{_MONTH}\s+(?:\d{{1,2}},?\s+)?(?:19|20)\d{{2}}\b"            # a year after a month name: "October 2026"
+    r"|\b95\s?%\s*(?:CI|confidence)|\b(?:CI|confidence interval)\s*(?:of\s*)?95\s?%",   # the level of a 95% CI
+    re.I)
 
 
 def numbers_in(text: str) -> list[str]:

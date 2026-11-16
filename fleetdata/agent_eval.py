@@ -17,6 +17,7 @@ import argparse
 import dataclasses
 import json
 import pathlib
+import re
 import types
 
 import duckdb
@@ -109,7 +110,8 @@ def grade(q: dict, answer: str, expected: list[float] | None) -> tuple[bool, str
     if q.get("unsupported"):
         ok = answer.strip().startswith(A.UNSUPPORTED_PREFIX)
         return ok, "says unsupported" if ok else "did not decline"
-    toks = A.numbers_in(answer)
+    # the number check skips clock times; the grader reads "17:00" as hour 17
+    toks = A.numbers_in(answer) + re.findall(r"\b(\d{1,2}):\d{2}\b", answer)
     if len(toks) > 3 * len(expected) + 10:      # a dump of many numbers cannot earn credit by containing the right one
         return False, f"too many numbers in the answer ({len(toks)})"
     missing = [v for v in expected if not any(matches(v, t) for t in toks)]

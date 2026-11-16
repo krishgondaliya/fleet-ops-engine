@@ -191,3 +191,23 @@ def test_describe_api_error_is_short_and_plain():
         "The API key was rejected")
     assert A.describe_api_error(api_error(anthropic.APIConnectionError, "Connection error.")).startswith(
         "Could not reach the API")
+
+
+def test_number_check_ignores_month_years_and_the_95_percent_level_only():
+    calls = [A.ToolCall(1, "x", {}, {"a": 0.838, "d": -0.0406})]
+    assert A.check_numbers("In October 2026 the MAE was 0.838.", calls) == []
+    assert A.check_numbers("On 5 Oct 2026 and Oct. 2026.", calls) == []
+    assert A.check_numbers("The 95% CI is -0.0406.", calls) == []
+    assert A.check_numbers("a 95% confidence interval; CI 95%", calls) == []
+    # still checked: a bare year, a count that looks like a year, and any other percentage
+    assert A.check_numbers("year 2026", calls) == ["2026"]
+    assert A.check_numbers("There were 2026 departures in October.", calls) == ["2026"]
+    assert A.check_numbers("a 94% CI, 95 departures", calls) == ["94", "95"]
+
+
+def test_grader_reads_clock_times_as_hours():
+    q = {"id": "Q4"}
+    assert E.grade(q, "The 17:00 local hour had 55 departures [#1].", [17.0, 55.0])[0]
+    assert E.grade(q, "Hour 17 (17:00 to 18:00) had 55.", [17.0, 55.0])[0]
+    assert not E.grade(q, "The 18:00 local hour had 55 departures.", [17.0, 55.0])[0]
+    assert E.grade(q, "Busiest at 05:00 with 3.", [5.0, 3.0])[0]

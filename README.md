@@ -114,6 +114,7 @@ ANTHROPIC_API_KEY=...             # only needed for AGENT_BACKEND=api
 - **Limits per question:** 8 tool calls and an 80,000-token cap.
 - **Numbers:** each number in an answer is checked against the values the tools returned. Arguments, notes and failed calls do not count, and a signed number must match the sign. Unmatched numbers are flagged as unverified. The check is a guard, not a proof: small numbers such as hours 0–23 often match some returned value by coincidence. The list of tool calls is appended to every answer.
 - **Eval:** 10 questions whose answers are computed directly with SQL. Results are written to `reports/agent_eval.json`.
+- **Live eval results (claude_code backend, claude-sonnet-5-5):** **9/10 before** a grader fix and **10/10 after**. The change was to the grader, not the agent: it ignored clock times such as "17:00", so a correct Q4 answer failed. The number check also stopped flagging a year after a month name ("October 2026") and the "95" in "95% CI". There were no real failures in either run. The grader was fixed after seeing the first results on the same 10 questions, so 10/10 is a regraded result, not a blind retest. One run per question; the api backend is unscored.
 
 ## Step 5: the app (Dock Balance Lab)
 

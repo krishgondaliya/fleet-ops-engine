@@ -288,7 +288,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "In the single snapshot of Grove St PATH (JC115), taken 2026-11-16 03:20:48 UTC, the station had these numbers [#1]:\n\n- **Bikes available:** 14 (observed). 12 of these were e-bikes.\n- **Docks available:** 26 (observed).\n\nCapacity is 42 (observed). Another 2 bikes were disabled (observed). This is one instant, not a history.",
+    "answer": "In the single snapshot of Grove St PATH (JC115), taken 2026-11-16 03:20:48 UTC [#1], the station had:\n\n- **Bikes available:** 14 (observed). Of these, 12 were e-bikes.\n- **Docks available:** 26 (observed).\n\nThe station's capacity is 42 (observed). It also had 2 disabled bikes (observed). This is one instant, not a history.",
     "tool_calls": [
       {
         "n": 1,
@@ -300,7 +300,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 6556,
+    "tokens": 6555,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -314,7 +314,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "Station JC115 had 178 completed trips start (departures) on 2026-10-05 (observed) [#1]. The data covers all 24 hours of that local day.\n\nThis counts completed trips, not demand.",
+    "answer": "On 2026-10-05, 178 completed trips started at JC115 (observed) [#1]. This counts completed trips, not demand.",
     "tool_calls": [
       {
         "n": 1,
@@ -329,7 +329,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 6587,
+    "tokens": 6565,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -343,7 +343,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "Station HB107 had **685 completed trips arrive** between 2026-09-01 and 2026-09-07 inclusive (observed) [#1].\n\nThe daily arrivals (observed) were 65, 103, 119, 108, 123, 63 and 104 [#1]. They add up to the 685 total in the tool result.\n\nArrivals here exclude trips that started in NYC [#1]. These are completed trips, not demand.",
+    "answer": "Station HB107 had **685 observed completed trips ending there** (arrivals) from 2026-09-01 to 2026-09-07 inclusive [#1]. That total covers all 7 days (168 hours).\n\nThe daily arrivals were 65, 103, 119, 108, 123, 63 and 104 [#1].\n\nThese are completed trips, not demand. The tool's arrivals figure also excludes trips that started in NYC [#1].",
     "tool_calls": [
       {
         "n": 1,
@@ -358,7 +358,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 6867,
+    "tokens": 6873,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -371,9 +371,9 @@
       55.0
     ],
     "mode": "live",
-    "correct": false,
-    "detail": "missing [17.0]",
-    "answer": "At JC115 on 2026-10-07, the 17:00 local hour (5\u20136 pm) had the most departures. There were 55 observed completed departures in that hour [#1]. The next busiest hour was 19:00, with 36 [#1].\n\nThese are completed trips, not demand.",
+    "correct": true,
+    "detail": "all expected numbers present",
+    "answer": "The busiest hour for departures at JC115 on 2026-10-07 was 17:00\u201318:00 local time. There were 55 observed completed-trip departures in that hour [#1].\n\nThe next busiest hours were 19:00 with 36 and 18:00 with 26 [#1]. These are completed trips, not demand.",
     "tool_calls": [
       {
         "n": 1,
@@ -388,7 +388,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 7502,
+    "tokens": 7522,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -403,7 +403,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "On the October 2026 test month, the departures MAE per station-hour was [#1]:\n\n- **LightGBM (predicted):** 0.838 trips.\n- **4-week average baseline (predicted):** 0.867 trips.\n\nLightGBM's MAE was 0.029 lower than the baseline's (the difference reported in [#1]). The paired bootstrap 95% CI for that difference is \u22120.0406 to \u22120.0165 [#1], so it doesn't include zero. Both scores cover 78,120 station-hours, where the observed mean was 1.3516 trips [#1]. These are completed trips, not demand.",
+    "answer": "On the October 2026 test month, the departures MAE was (all figures predicted, scored against observed trips, from [#1]):\n\n- **LightGBM:** 0.838 trips per station-hour.\n- **4-week average baseline:** 0.867 trips per station-hour.\n\nLightGBM's MAE was lower by 0.029. The bootstrap 95% CI for that difference is -0.0406 to -0.0165, which excludes zero [#1]. The mean observed departures were 1.3516 trips per station-hour [#1].",
     "tool_calls": [
       {
         "n": 1,
@@ -415,11 +415,8 @@
         "error": null
       }
     ],
-    "unverified_numbers": [
-      "2026",
-      "95"
-    ],
-    "tokens": 7070,
+    "unverified_numbers": [],
+    "tokens": 7046,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -434,7 +431,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "For JC115 on 2026-10-06:\n\n- **Observed departures:** 182 completed trips [#1]. These are completed trips, not demand.\n- **LightGBM forecast (predicted):** about 159.9 departures for the day [#1].\n\nThe forecast was about 22 trips below the observed count. That is a simple difference of the two tool values.",
+    "answer": "For JC115 on 2026-10-06:\n- **Observed:** 182 completed departures [#1]. These are completed trips, not demand.\n- **Predicted:** the LightGBM day-ahead forecast totaled about 159.9 departures [#1].\n\nThe forecast was about 22 trips below the observed count. That is a simple difference of the two tool values.",
     "tool_calls": [
       {
         "n": 1,
@@ -450,7 +447,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 6809,
+    "tokens": 6813,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -464,7 +461,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "The LightGBM WAPE for arrivals at HB107 in the October 2026 test month was **0.425**, or about 42.5% [#1]. This is a predicted value scored against observed arrivals. Observed arrivals that month totaled 4,197 trips [#1].\n\nThe two baselines scored as follows [#1]:\n- **Last-week baseline:** WAPE of 0.4446.\n- **4-week average baseline:** WAPE of 0.3866. This is lower than LightGBM's, so it was more accurate at this station.\n\nThese figures cover completed trips, not demand.",
+    "answer": "For arrivals at HB107 in the October 2026 test month, the LightGBM WAPE was **0.425**, or about 42.5% [#1]. This is a predicted value scored against observed trips.\n\nThe observed arrivals total for the month was 4,197 trips [#1].\n\nFor comparison, the two baselines scored as follows [#1]:\n- **Last-week baseline:** WAPE 0.4446.\n- **4-week average baseline:** WAPE 0.3866. This is lower than LightGBM's.\n\nThe arrivals are completed trips, not demand.",
     "tool_calls": [
       {
         "n": 1,
@@ -477,10 +474,8 @@
         "error": null
       }
     ],
-    "unverified_numbers": [
-      "2026"
-    ],
-    "tokens": 6609,
+    "unverified_numbers": [],
+    "tokens": 6604,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -495,7 +490,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "Simulated mean lost rentals for the one simulated day, averaged over 30 paired seeds [#1]:\n\n- **No action:** about 236 lost rentals (235.97).\n- **Greedy truck:** about 209 lost rentals (209.17).\n\nThe simulated difference is about 27 fewer lost rentals with the greedy truck (\u221226.8, 95% CI \u221231.7 to \u221221.7). Greedy did better in 29 of the 30 seeds and worse in 1 [#1].\n\nThese figures come from the simulation only. Observed trip data can't measure lost rentals.",
+    "answer": "Mean lost rentals per simulated day, averaged over 30 paired seeds [#1]:\n\n- **No action:** about 236.0 lost rentals (simulated).\n- **Greedy truck:** about 209.2 lost rentals (simulated).\n\nThe greedy policy's mean was 26.8 lower (simulated). The 95% CI for that difference is \u221231.7 to \u221221.7. Greedy did better in 29 of 30 seeds and worse in 1.\n\nThese figures come from a simulated one-day scenario, not from observed outcomes.",
     "tool_calls": [
       {
         "n": 1,
@@ -507,7 +502,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 7025,
+    "tokens": 7015,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -523,7 +518,7 @@
     "mode": "live",
     "correct": true,
     "detail": "all expected numbers present",
-    "answer": "In the simulation [#1], greedy minus no action for failed returns has a mean paired difference of **\u221239.97 failed returns per simulated day**. The 95% CI is **\u221243.83 to \u221236.27**.\n\n- The simulated means are 138.57 for greedy and 178.53 for no action.\n- Greedy had fewer failed returns in all 30 of 30 paired seeds.\n- These are simulated results from one synthetic day per seed. They are not observed outcomes.",
+    "answer": "In the simulation, greedy minus no action for failed returns is **\u221239.97 per simulated day**. The 95% CI is **\u221243.83 to \u221236.27** [#1].\n\n- The simulated means are 138.57 failed returns for greedy and 178.53 for no action [#1].\n- Greedy had fewer failed returns in all 30 of 30 paired seeds [#1].\n\nThese are simulated outcomes for one synthetic day per seed. They are not observed results [#1].",
     "tool_calls": [
       {
         "n": 1,
@@ -535,7 +530,7 @@
       }
     ],
     "unverified_numbers": [],
-    "tokens": 7003,
+    "tokens": 7005,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
@@ -547,10 +542,10 @@
     "mode": "live",
     "correct": true,
     "detail": "says unsupported",
-    "answer": "Not supported by the data: observed lost rentals can't be measured. The dataset has completed trips only, not demand. It also has no history of station status, only one GBFS snapshot at a single instant. So I can't tell how many rentals were lost at JC115 on 2026-10-05 because the station had no bikes.\n\nLost rentals exist only in the simulation, which is a simulated one-day policy comparison and not a record of that date. I can pull the simulated lost rentals for JC115, or the observed completed trips for that day, if you want either.",
+    "answer": "Not supported by the data: observed lost rentals can't be measured. The dataset has only completed trips and one GBFS snapshot. It has no history of station status, so I can't tell when JC115 had no bikes or how many rentals were lost because of that. Only the simulation reports lost rentals, and those are simulated, not observed.\n\nI can show the observed completed trips for JC115 on 2026-10-05, or the simulated lost rentals. Tell me which you want.",
     "tool_calls": [],
     "unverified_numbers": [],
-    "tokens": 3162,
+    "tokens": 3140,
     "backend": "claude_code",
     "model": "claude-sonnet-5-5",
     "stop": "end_turn"
